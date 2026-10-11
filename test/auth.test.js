@@ -2,6 +2,7 @@
 const assert = require('assert');
 const { validateCredentials, hashPassword, verifyPassword, createSessions, createLimiter } = require('../server/auth');
 const { sanitizeAppearance } = require('../server/appearance');
+const { sanitizeAccessories, CATALOG } = require('../server/accessories');
 const { openDb } = require('../server/db');
 
 // Credenciales
@@ -52,6 +53,14 @@ assert.strictEqual(got.username, 'Ana');
 assert.deepStrictEqual(got.appearance, sanitizeAppearance(ok));
 assert.ok(verifyPassword('secreto1', got.password));
 assert.strictEqual(db.getUser('nadie'), null);
+
+// Accesorios
+const acc = sanitizeAccessories({ hat: 'tophat', hatColor: '#EF4444', glasses: 'hack', extra: 'cape', extraColor: 'red;}' });
+assert.deepStrictEqual(acc, { hat: 'tophat', hatColor: '#ef4444', glasses: null, extra: 'cape', extraColor: CATALOG.colors[0] });
+assert.deepStrictEqual(sanitizeAccessories(null), { hat: null, hatColor: CATALOG.colors[0], glasses: null, extra: null, extraColor: CATALOG.colors[0] });
+const withAcc = { ...got.appearance, acc };
+db.updateAppearance(u.id, withAcc);
+assert.deepStrictEqual(db.getUser('ana').appearance.acc, acc, 'accesorios persistidos');
 db.close();
 
 console.log('auth OK');

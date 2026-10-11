@@ -4,6 +4,7 @@ const { T, officeAt } = require('./layout');
 const PET_KINDS = [
   { type: 'dog', name: 'Perro' },
   { type: 'cat', name: 'Gato' },
+  { type: 'rabbit', name: 'Conejo' },
 ];
 const PET_COLORS = [
   { id: 'brown', name: 'Café', hex: '#8a5a33' },

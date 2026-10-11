@@ -1,7 +1,7 @@
 'use strict';
 // Sprites procedurales 16x24 (4 direcciones x 3 frames) a partir de una apariencia.
 const Sprites = (() => {
-  const W = 16, H = 24;
+  const W = 16, H = 32, TOP = 8; // TOP: margen superior para gorros altos
   const cache = new Map();
   const EYE = '#1b1b22';
 
@@ -72,7 +72,11 @@ const Sprites = (() => {
     const shirtD = shade(p.shirt, -35);
     const skinD = shade(p.skin, -30);
     const hairD = shade(p.hair, -25);
+    const acc = a.acc;
+    const A = (stage) => Accessories.draw(stage, r, acc, dir, shade);
+    ctx.translate(0, TOP);
 
+    A('pre');
     // Piernas
     const lLen = frame === 1 ? 3 : 5;
     const rLen = frame === 2 ? 3 : 5;
@@ -115,6 +119,8 @@ const Sprites = (() => {
     r(p.skin, 4, 2, 8, 8);
     r(skinD, 4, 9, 8, 1);
     drawHair(r, p, female, a.style | 0, dir, hairD);
+    A('head');
+    A('hat');
 
     // Rostro
     if (dir === 'down') {
@@ -127,11 +133,13 @@ const Sprites = (() => {
       r('#fff', ex + (dir === 'left' ? 0 : 1), 6, 1, 1);
       r(skinD, dir === 'left' ? 4 : 11, 7, 1, 1);
     }
+    A('glasses');
+    A('post');
   }
 
   /** Devuelve el canvas del sprite (cacheado) para una apariencia, dirección y frame. */
   function get(a, dir, frame) {
-    const key = `${a.gender}|${a.style}|${a.skin}|${a.hair}|${a.shirt}|${a.pants}|${dir}|${frame}`;
+    const key = `${a.gender}|${a.style}|${a.skin}|${a.hair}|${a.shirt}|${a.pants}|${Accessories.key(a.acc)}|${dir}|${frame}`;
     let c = cache.get(key);
     if (c) return c;
     c = document.createElement('canvas');

@@ -85,13 +85,25 @@
     <div id="videoDock" hidden></div>
     <div id="buildPanel" hidden>
       <div class="bp-head"><strong>🛠 Decorar</strong><button id="buildClose" type="button" title="Cerrar">✕</button></div>
-      <div id="buildItems"></div>
-      <div id="petSection">
-        <strong>🐾 Mascotas</strong>
-        <div id="petKinds"></div>
-        <div id="petColors"></div>
+      <div id="buildTabs">
+        <button type="button" data-tab="office" class="on">🏢 Oficina</button>
+        <button type="button" data-tab="char">🧍 Personaje</button>
       </div>
-      <button id="buildRemove" type="button">🗑 Quitar objetos y mascotas</button>
+      <div id="officeTab">
+        <div id="buildItems"></div>
+        <div id="petSection">
+          <strong>🐾 Mascotas</strong>
+          <div id="petKinds"></div>
+          <div id="petColors"></div>
+        </div>
+        <button id="buildRemove" type="button">🗑 Quitar objetos y mascotas</button>
+      </div>
+      <div id="charTab" hidden>
+        <div class="accSection"><strong>🎩 Gorros</strong><div id="accHats" class="accGrid"></div><div id="accHatColors" class="accColors"></div></div>
+        <div class="accSection"><strong>👓 Lentes</strong><div id="accGlasses" class="accGrid"></div></div>
+        <div class="accSection"><strong>🎒 Accesorios</strong><div id="accExtras" class="accGrid"></div><div id="accExtraColors" class="accColors"></div></div>
+        <button id="accClear" type="button">🧹 Quitar todo</button>
+      </div>
       <p id="buildMsg"></p>
     </div>
     <div id="chatLog"></div>
@@ -102,6 +114,7 @@
   </div>
 
   <script src="appearance.js"></script>
+  <script src="accessories.js"></script>
   <script src="sprites.js"></script>
   <script src="props.js"></script>
   <script src="objects.js"></script>

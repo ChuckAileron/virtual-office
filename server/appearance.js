@@ -1,5 +1,7 @@
 'use strict';
 
+const { sanitizeAccessories } = require('./accessories');
+
 const HEX = /^#[0-9a-f]{6}$/i;
 const STYLES = 3;
 const COLOR_KEYS = ['skin', 'hair', 'shirt', 'pants'];
@@ -14,6 +16,7 @@ function sanitizeAppearance(a) {
     if (typeof a[k] !== 'string' || !HEX.test(a[k])) return null;
     out[k] = a[k].toLowerCase();
   }
+  out.acc = sanitizeAccessories(a.acc);
   return out;
 }
 

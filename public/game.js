@@ -31,6 +31,7 @@ function handleMessage(ev, ws) {
       ws, you: msg.you, room: msg.room, players: new Map(), keys: new Set(), lastSend: 0, raf: 0, lastT: performance.now(),
       objects: msg.objects || [], catalog: msg.catalog || [], cam: { x: 0, y: 0 },
       pets: new Map(), petKinds: msg.petKinds || [], petColors: msg.petColors || [],
+      accessories: msg.accessories,
     };
     (msg.pets || []).forEach((p) => G.pets.set(p.id, { ...p, rx: p.x, ry: p.y }));
     msg.players.forEach((p) => G.players.set(p.id, makePlayer(p)));
@@ -55,6 +56,11 @@ function handleMessage(ev, ws) {
     case 'object_add': G.objects.push(msg.object); break;
     case 'object_remove': G.objects = G.objects.filter((o) => o.id !== msg.id); break;
     case 'build_error': Build.error(msg.error); break;
+    case 'look': {
+      const p = G.players.get(msg.id);
+      if (p) { p.appearance = msg.appearance; renderPlayers(); if (msg.id === G.you) Build.refreshLook(); }
+      break;
+    }
     case 'pet_add': G.pets.set(msg.pet.id, { ...msg.pet, rx: msg.pet.x, ry: msg.pet.y }); break;
     case 'pet_remove': G.pets.delete(msg.id); break;
     case 'pet_move': {

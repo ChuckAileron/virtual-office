@@ -9,6 +9,7 @@ const Build = (() => {
   let removing = false;
   let hover = null;
   let errTimer = 0;
+  let tab = 'office';
 
   const $ = (s) => document.querySelector(s);
   const isOpen = () => !$('#buildPanel').hidden;
@@ -136,6 +137,74 @@ const Build = (() => {
     }
   }
 
+  const EMPTY_ACC = { hat: null, hatColor: null, glasses: null, extra: null, extraColor: null };
+  const me = () => (G && G.players.get(G.you)) || null;
+  const myAcc = () => {
+    const a = me() && me().appearance.acc;
+    const colors = G.accessories.colors;
+    return { ...EMPTY_ACC, hatColor: colors[0], extraColor: colors[0], ...(a || {}) };
+  };
+  const sendLook = (acc) => G.ws.readyState === 1 && G.ws.send(JSON.stringify({ type: 'set_look', acc }));
+
+  function accIcon(item, slot, acc) {
+    const sample = { ...acc, hat: null, glasses: null, extra: null, [slot]: item.id };
+    const dir = slot === 'extra' && (item.id === 'backpack' || item.id === 'cape') ? 'up' : 'down';
+    const spr = Sprites.get({ ...me().appearance, acc: sample }, dir, 0);
+    const c = document.createElement('canvas');
+    const crop = slot === 'extra' ? [8, 22] : slot === 'hat' ? [0, 20] : [4, 16];
+    c.width = Sprites.W; c.height = crop[1];
+    c.getContext('2d').drawImage(spr, 0, crop[0], Sprites.W, crop[1], 0, 0, Sprites.W, crop[1]);
+    return c;
+  }
+
+  function renderAccSlot(boxId, colorsId, slot, list, colorKey) {
+    const acc = myAcc();
+    const box = $(boxId);
+    box.innerHTML = '';
+    for (const item of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = item.name;
+      b.classList.toggle('on', acc[slot] === item.id);
+      b.append(accIcon(item, slot, acc));
+      b.onclick = () => sendLook({ ...acc, [slot]: acc[slot] === item.id ? null : item.id });
+      box.append(b);
+    }
+    if (!colorsId) return;
+    const colors = $(colorsId);
+    colors.hidden = !acc[slot];
+    colors.innerHTML = '';
+    for (const hex of G.accessories.colors) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.style.background = hex;
+      b.classList.toggle('on', acc[colorKey] === hex);
+      b.onclick = () => sendLook({ ...acc, [colorKey]: hex });
+      colors.append(b);
+    }
+  }
+
+  function renderChar() {
+    if (!me()) return;
+    renderAccSlot('#accHats', '#accHatColors', 'hat', G.accessories.hats, 'hatColor');
+    renderAccSlot('#accGlasses', null, 'glasses', G.accessories.glasses);
+    renderAccSlot('#accExtras', '#accExtraColors', 'extra', G.accessories.extras, 'extraColor');
+  }
+
+  function setTab(name) {
+    if (name === tab) return;
+    tab = name;
+    select(null);
+    hover = null;
+    document.querySelectorAll('#buildTabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+    $('#officeTab').hidden = tab !== 'office';
+    $('#charTab').hidden = tab !== 'char';
+    if (tab === 'char') { renderChar(); message('Elige gorro, lentes y accesorios: se aplican al instante. Clic de nuevo para quitarlos.'); }
+  }
+
+  document.querySelectorAll('#buildTabs button').forEach((b) => { b.onclick = () => setTab(b.dataset.tab); });
+  $('#accClear').onclick = () => sendLook({ ...EMPTY_ACC, hatColor: myAcc().hatColor, extraColor: myAcc().extraColor });
+
   function icon(def) {
     const spr = Objects.sprite(def);
     const c = document.createElement('canvas');
@@ -165,6 +234,8 @@ const Build = (() => {
     petSel = null;
     petColor = G.petColors[0].id;
     renderPets();
+    tab = 'char';
+    setTab('office');
     close();
   }
 
@@ -274,5 +345,5 @@ const Build = (() => {
     }
   }
 
-  return { init, reset: close, drawOverlay, error: (m) => message(m, true) };
+  return { init, reset: close, drawOverlay, error: (m) => message(m, true), refreshLook: () => { if (tab === 'char' && isOpen()) renderChar(); } };
 })();

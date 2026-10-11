@@ -74,6 +74,7 @@ function openDb(file) {
   const selectAll = db.prepare('SELECT code, name, layout FROM rooms');
   const insertUser = db.prepare('INSERT INTO users (username, password, appearance) VALUES (?, ?, ?)');
   const selectUser = db.prepare('SELECT id, username, password, appearance FROM users WHERE username = ?');
+  const updateLook = db.prepare('UPDATE users SET appearance = ? WHERE id = ?');
 
   return {
     /** Crea un usuario; devuelve null si el nombre ya existe. */
@@ -89,6 +90,9 @@ function openDb(file) {
     getUser(username) {
       const row = selectUser.get(String(username));
       return row ? { ...row, appearance: JSON.parse(row.appearance) } : null;
+    },
+    updateAppearance(userId, appearance) {
+      updateLook.run(JSON.stringify(appearance), userId);
     },
     /** Guarda una sala con un código único (reintenta ante colisión). */
     saveRoom({ name, size, tiles, offices }) {

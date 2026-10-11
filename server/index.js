@@ -9,6 +9,7 @@ const { T, computeFloorSize, generateLayout, isWalkable, officeAt, canTalk } = r
 const { openDb, normalizeCode, formatCode } = require('./db');
 const { validateCredentials, hashPassword, verifyPassword, createSessions, createLimiter } = require('./auth');
 const { sanitizeAppearance } = require('./appearance');
+const { CATALOG: ACCESSORIES, sanitizeAccessories } = require('./accessories');
 const { CATALOG_LIST, rebuildBlocked, validatePlacement } = require('./objects');
 const { PET_KINDS, PET_COLORS, validatePet, stepPet } = require('./pets');
 
@@ -233,6 +234,7 @@ wss.on('connection', (ws) => {
         pets: room.pets,
         petKinds: PET_KINDS,
         petColors: PET_COLORS,
+        accessories: ACCESSORIES,
         players: [...room.players.values()].map(view),
       });
       broadcast(room, { type: 'joined', player: view(player) }, ws);
@@ -240,7 +242,7 @@ wss.on('connection', (ws) => {
     }
 
     if (!player || !player.room) return;
-    if (['activity', 'move', 'chat', 'voice', 'place', 'remove_object', 'place_pet', 'remove_pet'].includes(msg.type)) touch(player);
+    if (['activity', 'move', 'chat', 'voice', 'place', 'remove_object', 'place_pet', 'remove_pet', 'set_look'].includes(msg.type)) touch(player);
     if (msg.type === 'activity') return;
     const room = player.room;
 
@@ -290,6 +292,13 @@ wss.on('connection', (ws) => {
         room.pets.splice(idx, 1);
         broadcast(room, { type: 'pet_remove', id: msg.id });
       }
+    } else if (msg.type === 'set_look') {
+      const now = Date.now();
+      if (now - (player.lastLook || 0) < 100) return;
+      player.lastLook = now;
+      player.appearance = { ...player.appearance, acc: sanitizeAccessories(msg.acc) };
+      db.updateAppearance(player.userId, player.appearance);
+      broadcast(room, { type: 'look', id: player.id, appearance: player.appearance });
     } else if (msg.type === 'voice') {
       player.voice = msg.on === true;
       broadcast(room, { type: 'voice', id: player.id, on: player.voice });
