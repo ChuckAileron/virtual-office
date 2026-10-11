@@ -1,0 +1,77 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, Segoe UI, sans-serif; background: #1d2233; color: #e8ebf5; }
+[hidden] { display: none !important; }
+#lobby { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { text-align: center; }
+h2 { margin-top: 0; font-size: 18px; }
+.card { background: #2a3048; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+label { display: block; margin-bottom: 10px; font-size: 14px; flex: 1; }
+input { display: block; width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #44507a; background: #1d2233; color: inherit; }
+.row { display: flex; gap: 12px; }
+label.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+label.check input { display: inline-block; width: auto; margin: 0; }
+button { cursor: pointer; border: 0; border-radius: 8px; padding: 8px 14px; background: #44507a; color: #fff; font-size: 14px; }
+button:hover { background: #55639a; }
+button.primary { background: #4f8cff; font-weight: 600; }
+.tabs { display: flex; gap: 8px; margin: 8px 0; }
+.tabs button.active { background: #4f8cff; }
+.presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.preset { background: #1d2233; border: 2px solid transparent; border-radius: 10px; padding: 6px; cursor: pointer; }
+.preset.selected { border-color: #4f8cff; }
+.preset canvas { width: 64px; height: 96px; image-rendering: pixelated; display: block; margin: 0 auto; }
+#creator h3 { margin: 12px 0 0; font-size: 15px; }
+#creator #rollBtn { margin-top: 10px; }
+.buttons { margin-top: 14px; }
+.buttons button { flex: 0 0 auto; }
+.hint { color: #9fb0e0; font-size: 13px; min-height: 18px; }
+.hint.warn { color: #ffcf6b; }
+.error { color: #ff7b7b; text-align: center; min-height: 20px; }
+.rooms { list-style: none; margin: 0; padding: 0; }
+.rooms li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #3a4262; }
+.rooms small { color: #9fb0e0; display: block; }
+.joinRow { display: flex; gap: 8px; }
+.joinRow input { margin: 0; text-transform: uppercase; letter-spacing: 2px; font-family: monospace; font-size: 16px; }
+.rooms .actions { display: flex; gap: 6px; }
+#codeBtn { font-family: monospace; letter-spacing: 1px; background: #1d2233; }
+
+#game { position: fixed; inset: 0; background: #11141f; }
+#canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+#hud { position: absolute; top: 10px; left: 10px; background: #000a; padding: 8px 12px; border-radius: 8px; display: flex; gap: 12px; align-items: center; }
+#players { position: absolute; top: 10px; right: 10px; background: #000a; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-height: 40vh; overflow: auto; }
+#chatLog { position: absolute; left: 10px; bottom: 56px; width: 380px; max-height: 30vh; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; font-size: 14px; pointer-events: none; }
+#chatLog div { background: #000a; padding: 3px 8px; border-radius: 6px; margin-top: 3px; word-break: break-word; }
+#chatForm { position: absolute; left: 10px; bottom: 10px; width: 380px; }
+#help { position: absolute; right: 10px; bottom: 10px; background: #000a; padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+#hud { flex-wrap: wrap; max-width: calc(100% - 200px); }
+#micBtn.on, #camBtn.on, #screenBtn.on { background: #1f9d55; }
+#videoDock { position: absolute; right: 10px; bottom: 60px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-height: calc(100% - 220px); overflow: auto; }
+.vtile { margin: 0; position: relative; width: 200px; background: #000; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid #ffffff33; }
+.vtile.screen { width: 360px; }
+.vtile.mine video { transform: scaleX(-1); }
+.vtile video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
+.vtile figcaption { position: absolute; left: 6px; bottom: 4px; font-size: 12px; background: #000a; padding: 1px 6px; border-radius: 4px; }
+#voiceStatus { flex-basis: 100%; font-size: 12px; color: #cfd6ff; }
+#micMeter { display: none; width: 70px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
+#micBtn.on ~ #micMeter { display: inline-block; }
+#micLevel { display: block; height: 100%; width: 0; background: #7a8; transition: width 0.08s; }
+#micLevel.hot { background: #3ddc84; }
+#voiceStatus:empty { display: none; }
+#buildBtn.on { background: #c98a1a; }
+#buildPanel { position: absolute; top: 100px; left: 10px; width: 272px; max-height: calc(100% - 170px); overflow: auto; background: #000c; padding: 10px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; }
+#buildPanel[hidden] { display: none; }
+#buildPanel .bp-head { display: flex; justify-content: space-between; align-items: center; }
+#buildItems { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#buildItems button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font-size: 11px; line-height: 1.1; background: #1f2433; border: 2px solid transparent; border-radius: 8px; min-height: 76px; }
+#buildItems button canvas { image-rendering: pixelated; }
+#buildItems button.on { border-color: #3ddc84; background: #26402f; }
+#buildRemove.on { background: #b3302f; }
+#petSection { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+#petKinds { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+#petKinds button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font-size: 11px; background: #1f2433; border: 2px solid transparent; border-radius: 8px; }
+#petKinds button canvas { image-rendering: pixelated; }
+#petKinds button.on { border-color: #3ddc84; background: #26402f; }
+#petColors { display: flex; gap: 6px; flex-wrap: wrap; }
+#petColors button { width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 2px solid #ffffff55; }
+#petColors button.on { border-color: #3ddc84; box-shadow: 0 0 0 2px #3ddc84; }
+#buildMsg { margin: 0; font-size: 12px; color: #cfd6ff; }
+#buildMsg.err { color: #ff8a8a; }

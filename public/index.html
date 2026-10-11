@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oficina Virtual</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="lobby">
+    <h1>🏢 Oficina Virtual</h1>
+
+    <div id="mainCards">
+      <section class="card">
+        <h2>1. Crear un piso</h2>
+        <form id="createForm" novalidate>
+          <label>Nombre del piso <input name="name" maxlength="32" value="Piso 1" required></label>
+          <div class="row">
+            <label>Cantidad de oficinas <input name="offices" type="number" min="1" max="60" value="6" required></label>
+          </div>
+          <label class="check"><input name="conference" type="checkbox"> Agregar sala de reuniones (arriba, una silla por oficina)</label>
+          <label class="check"><input name="boss" type="checkbox"> Agregar oficina del jefe (al medio, además de las oficinas)</label>
+          <p id="sizeInfo" class="hint"></p>
+          <button type="submit" class="primary">Crear y entrar</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>2. Unirse con código de invitación</h2>
+        <form id="joinForm" class="joinRow" novalidate>
+          <input id="joinCode" maxlength="9" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false">
+          <button type="submit" class="primary">Entrar</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Mis pisos (guardados en este equipo)</h2>
+        <ul id="roomList" class="rooms"></ul>
+      </section>
+    </div>
+
+    <section id="authCard" class="card" hidden>
+      <h2 id="authTitle"></h2>
+      <div id="authTabs" class="tabs">
+        <button type="button" data-mode="login" class="active">Ingresar</button>
+        <button type="button" data-mode="register">Crear cuenta</button>
+      </div>
+      <form id="authForm" novalidate>
+        <label>Usuario <input name="username" maxlength="16" autocomplete="username"></label>
+        <label>Contraseña <input name="password" type="password" maxlength="100" autocomplete="current-password"></label>
+        <div id="creator" hidden>
+          <h3>Tu personaje</h3>
+          <div id="genderTabs" class="tabs">
+            <button type="button" data-gender="male" class="active">Masculino</button>
+            <button type="button" data-gender="female">Femenino</button>
+          </div>
+          <div id="presets" class="presets"></div>
+          <button type="button" id="rollBtn">🎲 Generar aleatorio</button>
+        </div>
+        <div class="row buttons">
+          <button type="submit" id="authSubmit" class="primary">Ingresar</button>
+          <button type="button" id="authCancel">Cancelar</button>
+        </div>
+      </form>
+    </section>
+    <p id="lobbyError" class="error"></p>
+  </main>
+
+  <div id="game" hidden>
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+      <strong id="hudRoom"></strong>
+      <button id="codeBtn" title="Copiar código de invitación"></button>
+      <span id="hudWhere"></span>
+      <button id="micBtn" title="Hablar por micrófono con quienes estén en tu mismo recinto">🎙 Activar voz</button>
+      <button id="muteBtn" hidden>🔈 Silenciar</button>
+      <button id="camBtn" hidden title="Activar la cámara para quienes estén en tu recinto o cerca">📷 Cámara</button>
+      <button id="screenBtn" hidden title="Proyectar tu pantalla completa">🖥 Proyectar</button>
+      <span id="micMeter" title="Volumen del micrófono"><i id="micLevel"></i></span>
+      <button id="buildBtn" title="Personalizar el piso con objetos de oficina">🛠 Decorar</button>
+      <button id="leaveBtn">Salir</button>
+      <div id="voiceStatus"></div>
+    </div>
+    <aside id="players"></aside>
+    <div id="videoDock" hidden></div>
+    <div id="buildPanel" hidden>
+      <div class="bp-head"><strong>🛠 Decorar</strong><button id="buildClose" type="button" title="Cerrar">✕</button></div>
+      <div id="buildItems"></div>
+      <div id="petSection">
+        <strong>🐾 Mascotas</strong>
+        <div id="petKinds"></div>
+        <div id="petColors"></div>
+      </div>
+      <button id="buildRemove" type="button">🗑 Quitar objetos y mascotas</button>
+      <p id="buildMsg"></p>
+    </div>
+    <div id="chatLog"></div>
+    <form id="chatForm">
+      <input id="chatInput" maxlength="200" autocomplete="off" placeholder="Enter para chatear (lo oyen los cercanos y los de tu oficina)">
+    </form>
+    <div id="help">Mover: WASD / flechas</div>
+  </div>
+
+  <script src="appearance.js"></script>
+  <script src="sprites.js"></script>
+  <script src="props.js"></script>
+  <script src="objects.js"></script>
+  <script src="pets.js"></script>
+  <script src="lobby.js"></script>
+  <script src="game.js"></script>
+  <script src="build.js"></script>
+  <script src="voice.js"></script>
+</body>
+</html>
