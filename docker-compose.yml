@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: office
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Ejecuta npm run setup para generar .env}
+      POSTGRES_DB: office
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U office -d office"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Sin "ports": PostgreSQL solo es accesible desde la red interna de Compose.
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        log_level: info
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: false
+          node_ip: ${LAN_IP:?Ejecuta npm run setup para generar .env}
+        keys:
+          ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+    ports:
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
+
+  server:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TRUST_PROXY: "true"
+      DATABASE_URL: postgresql://office:${POSTGRES_PASSWORD}@postgres:5432/office
+      JWT_SECRET: ${JWT_SECRET:?Ejecuta npm run setup para generar .env}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_PUBLIC_URL: wss://${LAN_IP}/livekit
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+      - livekit
+    environment:
+      LAN_IP: ${LAN_IP}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

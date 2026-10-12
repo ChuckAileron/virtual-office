@@ -14,6 +14,14 @@ const { CATALOG_LIST, rebuildBlocked, validatePlacement } = require('./objects')
 const { PET_KINDS, PET_COLORS, validatePet, stepPet } = require('./pets');
 
 const PORT = process.env.PORT || 3000;
+
+// IPv4 no internas de la máquina (Wi-Fi / Ethernet), válido en Windows, macOS y Linux
+function lanAddresses() {
+  return Object.values(require('os').networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === 'IPv4' && !i.internal)
+    .map((i) => i.address);
+}
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'offices.db');
 const MOVE_INTERVAL_MS = 90;
 const IDLE_MS = Number(process.env.IDLE_MS) || 5 * 60 * 1000;
@@ -37,7 +45,16 @@ const online = new Map();
 const cleanText = (s, max) => String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 
 function toRuntime(r) {
-  const room = { code: r.code, name: r.name, size: r.size, tiles: r.tiles, offices: r.offices, players: new Map() };
+  const tiles = r.tiles.map((row) => row.slice());
+  for (const o of r.offices) {
+    const floor = o.kind === 'boss' ? T.BOSS : o.kind === 'conference' ? T.CONF : T.OFFICE;
+    for (let y = o.y; y < o.y + o.h; y++) {
+      for (let x = o.x; x < o.x + o.w; x++) {
+        if (tiles[y][x] === T.PLANT) tiles[y][x] = floor;
+      }
+    }
+  }
+  const room = { code: r.code, name: r.name, size: r.size, tiles, offices: r.offices, players: new Map() };
   for (const o of room.offices) if (o.kind === 'conference') o.name = 'Sala de reuniones'; // pisos creados antes del cambio de nombre
   room.objects = db.loadObjects(r.code);
   room.pets = db.loadPets(r.code);
@@ -332,7 +349,10 @@ if (require.main === module) {
   };
   server.on('error', onListenError);
   wss.on('error', onListenError);
-  server.listen(PORT, () => console.log(`Oficina virtual en http://localhost:${PORT}`));
+  server.listen(PORT, () => {
+    console.log(`Oficina virtual en http://localhost:${PORT}`);
+    for (const ip of lanAddresses()) console.log(`  En tu red local: http://${ip}:${PORT}`);
+  });
 }
 
 module.exports = { app, server };

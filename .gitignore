@@ -6,6 +6,8 @@ data/
 *.db-shm
 .env
 .env.*
+!.env.example
+dist/
 *.log
 npm-debug.log*
 .DS_Store

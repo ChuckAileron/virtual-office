@@ -325,10 +325,6 @@ function drawTile(ctx, t, x, y, tiles) {
     if (!above) { ctx.translate(px, py + TILE); ctx.scale(1, -1); ctx.drawImage(Props.chair(x), 0, 0, TILE, TILE); }
     else ctx.drawImage(Props.chair(x), px, py, TILE, TILE);
     ctx.restore();
-  } else if (t === T.PLANT) {
-    ctx.fillStyle = '#8a4b2a'; ctx.fillRect(px + 10, py + 20, 12, 10);
-    ctx.fillStyle = '#2e9e4f'; ctx.beginPath(); ctx.arc(px + 16, py + 14, 10, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#3fbf67'; ctx.beginPath(); ctx.arc(px + 13, py + 11, 5, 0, Math.PI * 2); ctx.fill();
   }
 }
 

@@ -28,6 +28,7 @@ for (const n of [1, 2, 3, 5, 6, 7, 12, 25, 60]) {
       const { width: W, height: H } = l.size;
       assert.strictEqual(l.tiles.length, H);
       assert.strictEqual(l.tiles[0].length, W);
+      assert.strictEqual(countTiles(l.tiles, T.PLANT), 0, 'sin plantas decorativas automáticas');
 
       const normal = l.offices.filter((o) => o.kind === 'office');
       const conf = l.offices.filter((o) => o.kind === 'conference');

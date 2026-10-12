@@ -1,15 +1,23 @@
-﻿{
+{
   "name": "virtual-office",
-  "version": "1.0.0",
-  "description": "Oficina virtual 2D multijugador al estilo Gather",
-  "main": "server/index.js",
-  "scripts": {
-    "start": "node server/index.js",
-    "test": "node test/layout.test.js && node test/db.test.js && node test/auth.test.js && node test/objects.test.js && node test/pets.test.js"
+  "version": "2.0.0",
+  "private": true,
+  "description": "Oficina virtual 2D multijugador (React + NestJS + Socket.IO + LiveKit + PostgreSQL)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
   },
-  "dependencies": {
-    "express": "^4.19.2",
-    "ws": "^8.18.0"
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "build": "npm run build -w @vo/shared && npm run build -w @vo/server && npm run build -w @vo/web",
+    "typecheck": "npm run build -w @vo/shared && npm run typecheck -w @vo/server && npm run typecheck -w @vo/web",
+    "test": "npm run build -w @vo/shared && npm test -w @vo/shared && npm test -w @vo/server && npm test -w @vo/web",
+    "dev:server": "npm run build -w @vo/shared && npm run dev -w @vo/server",
+    "dev:web": "npm run dev -w @vo/web",
+    "up": "node scripts/setup-env.mjs && docker compose up -d --build",
+    "down": "docker compose down"
   }
 }
-

@@ -103,12 +103,9 @@ function generateLayout(opts) {
     let name;
     if (r.kind === 'office') {
       for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + 2][x] = T.DESK;
-      tiles[r.y + 1][r.x + 1] = T.PLANT;
-      tiles[r.y + 1][r.x + r.w - 2] = T.PLANT;
       name = `Oficina ${++officeNo}`;
     } else if (r.kind === 'boss') {
       for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + 3][x] = T.DESK;
-      for (const [px, py] of [[1, 1], [r.w - 2, 1], [1, 5], [r.w - 2, 5]]) tiles[r.y + py][r.x + px] = T.PLANT;
       name = 'Oficina del jefe';
     } else {
       // Mesa de reuniones con una silla por oficina (mitad arriba, mitad abajo)

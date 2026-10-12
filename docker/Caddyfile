@@ -1,0 +1,27 @@
+{
+	auto_https disable_redirects
+}
+
+https://{$LAN_IP} {
+	tls internal
+
+	# Certificado raíz para instalarlo en cada equipo: https://<IP>/ca.crt
+	handle /ca.crt {
+		root * /data/caddy/pki/authorities/local
+		rewrite * /root.crt
+		header Content-Disposition "attachment; filename=oficina-virtual-ca.crt"
+		file_server
+	}
+
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+
+	handle {
+		reverse_proxy server:3000
+	}
+}
+
+http://{$LAN_IP} {
+	redir https://{$LAN_IP}{uri} permanent
+}
