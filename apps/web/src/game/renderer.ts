@@ -13,6 +13,8 @@ const FLOORS = {
   boss: ['#7a4a52', '#703f48'],
   conference: ['#a9b8a2', '#a0af99'],
   lobby: ['#cbb27f', '#c2a976'],
+  kitchen: ['#cbb489', '#c3ac81'],
+  rest: ['#aebfa6', '#a5b69d'],
   hall: ['#8ea4c4', '#869cbd'],
 } as const;
 
@@ -85,6 +87,45 @@ function drawTileDetails(ctx: CanvasRenderingContext2D, state: GameState, t: num
       ctx.restore();
     } else {
       ctx.drawImage(chair(x), px, py, TILE, TILE);
+    }
+  } else if (t === T.COUNTER) {
+    ctx.fillStyle = '#8a8f99'; ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = '#b9bec8'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 7);
+    ctx.fillStyle = '#6b7079'; ctx.fillRect(px, py + TILE - 4, TILE, 4);
+    ctx.fillStyle = '#5c616b'; ctx.fillRect(px + 6, py + TILE - 6, TILE - 12, 2);
+  } else if (t === T.SOFA) {
+    // Sillón orientado hacia la mesa cercana; dibujamos respaldo, brazos y cojín por separado.
+    const facing = tiles[y + 1]?.[x] === T.ROUND_TABLE ? 0
+      : tiles[y - 1]?.[x] === T.ROUND_TABLE ? Math.PI
+        : tiles[y][x + 1] === T.ROUND_TABLE ? -Math.PI / 2
+          : tiles[y][x - 1] === T.ROUND_TABLE ? Math.PI / 2 : 0;
+    ctx.save();
+    ctx.translate(px + TILE / 2, py + TILE / 2);
+    ctx.rotate(facing);
+    ctx.fillStyle = '#00000033'; ctx.beginPath(); ctx.ellipse(0, 10, 13, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#284653'; ctx.fillRect(-14, -13, 28, 26);
+    ctx.fillStyle = '#397080'; ctx.fillRect(-11, -12, 22, 8);
+    ctx.fillStyle = '#4d8994'; ctx.fillRect(-10, -3, 20, 13);
+    ctx.fillStyle = '#70a6a8'; ctx.fillRect(-8, -1, 16, 8);
+    ctx.fillStyle = '#2d626e'; ctx.fillRect(-14, -3, 4, 12); ctx.fillRect(10, -3, 4, 12);
+    ctx.fillStyle = '#a4c4b9'; ctx.fillRect(-7, -10, 14, 1);
+    ctx.fillStyle = '#25404a'; ctx.fillRect(-11, 12, 3, 2); ctx.fillRect(8, 12, 3, 2);
+    ctx.restore();
+  } else if (t === T.ROUND_TABLE) {
+    // Una sola mesa redonda por cada bloque 2x2
+    if (tiles[y - 1]?.[x] !== T.ROUND_TABLE && tiles[y][x - 1] !== T.ROUND_TABLE) {
+      ctx.save();
+      const cx = px + TILE, cy = py + TILE;
+      ctx.fillStyle = '#00000033'; ctx.beginPath(); ctx.ellipse(cx, cy + 4, TILE - 4, TILE - 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#54351f'; ctx.beginPath(); ctx.arc(cx, cy, TILE - 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#98633d'; ctx.beginPath(); ctx.arc(cx, cy - 1, TILE - 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#bd8958'; ctx.beginPath(); ctx.arc(cx, cy - 2, TILE - 8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#d4a675'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy - 2, TILE - 11, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      // Pequeño florero para que se lea como mesa de descanso y no como un disco de suelo.
+      ctx.fillStyle = '#e6d9b8'; ctx.beginPath(); ctx.ellipse(cx, cy - 1, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#67a978'; ctx.beginPath(); ctx.ellipse(cx - 3, cy - 7, 3, 5, -0.65, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#82c58b'; ctx.beginPath(); ctx.ellipse(cx + 3, cy - 7, 3, 5, 0.65, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
   }
 }
@@ -181,7 +222,7 @@ function drawOverlay(
     const sel = build.selected;
     ctx.save();
     ctx.globalAlpha = 0.8;
-    ctx.drawImage(objectSprite(sel), px, py);
+    ctx.drawImage(objectSprite(sel, build.perspective, build.flipped), px, py);
     ctx.globalAlpha = 1;
     highlight(ctx, px, py, sel.w * TILE, sel.h * TILE, build.canPlaceHere());
     ctx.restore();
@@ -263,7 +304,11 @@ export function render(
     visible
       .filter((o) => (state.defs.get(o.type)!.layer === 'floor') === floorLayer)
       .sort((a, b) => a.y - b.y)
-      .forEach((o) => ctx.drawImage(objectSprite(state.defs.get(o.type)!), o.x * TILE, o.y * TILE));
+      .forEach((o) => ctx.drawImage(
+        objectSprite(state.defs.get(o.type)!, o.perspective ?? 'front', o.flipped ?? false),
+        o.x * TILE,
+        o.y * TILE,
+      ));
   }
 
   for (const o of offices) {

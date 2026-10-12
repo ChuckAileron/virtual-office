@@ -76,7 +76,7 @@ export interface ClientToServerEvents {
   activity: () => void;
   move: (p: { dir: Dir }) => void;
   chat: (p: { text: string }) => void;
-  place: (p: { kind: string; x: number; y: number }) => void;
+  place: (p: { kind: string; x: number; y: number; perspective?: 'front' | 'side'; flipped?: boolean }) => void;
   remove_object: (p: { id: number }) => void;
   place_pet: (p: { kind: string; color: string; x: number; y: number }) => void;
   remove_pet: (p: { id: number }) => void;

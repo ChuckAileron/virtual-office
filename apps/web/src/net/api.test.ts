@@ -31,16 +31,16 @@ describe('api', () => {
 
   it('createRoom usa Bearer y convierte offices a número', async () => {
     const fn = mockFetch(201, { code: 'ABCD-EFGH' });
-    await createRoom('Espacio', { offices: '4', conference: true, boss: false }, 'tok');
+    await createRoom('Espacio', { offices: '4', conference: true, boss: false, kitchen: false, rest: true }, 'tok');
     const init = fn.mock.calls[0][1];
     expect(init.headers.Authorization).toBe('Bearer tok');
-    expect(JSON.parse(init.body)).toEqual({ name: 'Espacio', offices: 4, conference: true, boss: false });
+    expect(JSON.parse(init.body)).toEqual({ name: 'Espacio', offices: 4, conference: true, boss: false, kitchen: false, rest: true });
   });
 
   it('getLayoutSize arma la query', async () => {
     const fn = mockFetch(200, { width: 10, height: 20 });
-    await getLayoutSize({ offices: 6, conference: false, boss: true });
-    expect(fn.mock.calls[0][0]).toBe('/api/layout?offices=6&conference=false&boss=true');
+    await getLayoutSize({ offices: 6, conference: false, boss: true, kitchen: true, rest: false });
+    expect(fn.mock.calls[0][0]).toBe('/api/layout?offices=6&conference=false&boss=true&kitchen=true&rest=false');
   });
 
   it('getRoom codifica el código y getConfig lee la config', async () => {

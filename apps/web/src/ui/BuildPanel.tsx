@@ -5,7 +5,7 @@ import { petSprite } from '../game/pets';
 import { SPRITE_W, getSprite } from '../game/sprites';
 import { HAIRS, PANTS, SHIRTS, SKINS, STYLE_COUNT } from '../game/appearance';
 import type { GameSession } from '../game/session';
-import { MAX_FLOOR_DECORATION_DIMENSION, officeAt, styleAllowed, type Accessories, type Appearance, type CatalogEntry } from '@vo/shared';
+import { MAX_FLOOR_DECORATION_DIMENSION, officeAt, styleAllowed, supportsSideView, type Accessories, type Appearance, type CatalogEntry } from '@vo/shared';
 
 function Icon({ draw, width, height }: { draw(ctx: CanvasRenderingContext2D): void; width: number; height: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -174,6 +174,21 @@ export function BuildPanel({ session }: { session: GameSession }) {
               </button>
             ))}
           </div>
+          {build.selected && supportsSideView(build.selected.type) && (
+            <section id="objectOrientation">
+              <strong>Perspectiva: {build.selected.name}</strong>
+              <div className="objectOrientationChoices">
+                <button type="button" className={build.perspective === 'front' ? 'on' : ''} onClick={() => build.setPerspective('front')}>Frontal</button>
+                <button type="button" className={build.perspective === 'side' ? 'on' : ''} onClick={() => build.setPerspective('side')}>De lado</button>
+              </div>
+              {build.perspective === 'side' && (
+                <div className="objectOrientationChoices">
+                  <button type="button" className={!build.flipped ? 'on' : ''} onClick={() => build.setFlipped(false)}>Orientación original</button>
+                  <button type="button" className={build.flipped ? 'on' : ''} onClick={() => build.setFlipped(true)}>Mirar al otro lado</button>
+                </div>
+              )}
+            </section>
+          )}
           <div id="floorImageSection">
             <strong>🖼 Imagen de piso</strong>
             <label className="floorImageFile">Subir imagen (PNG/JPEG)

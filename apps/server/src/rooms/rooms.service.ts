@@ -48,7 +48,9 @@ export class RoomsService implements OnModuleInit {
     // diseño antiguo de entrada), conservando sus opciones. El resto no cambia.
     let { size, tiles, offices } = row;
     if (size.version !== LAYOUT_VERSION || !tiles.some((r) => r.includes(T.LOBBY))) {
-      const layout = generateLayout({ offices: size.offices, conference: size.conference, boss: size.boss });
+      const layout = generateLayout({
+        offices: size.offices, conference: size.conference, boss: size.boss, kitchen: size.kitchen, rest: size.rest,
+      });
       ({ size, tiles, offices } = layout);
       await this.repo.updateRoomLayout(row.code, layout);
     }

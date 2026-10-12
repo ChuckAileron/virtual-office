@@ -24,6 +24,8 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
   const [offices, setOffices] = useState('6');
   const [conference, setConference] = useState(false);
   const [boss, setBoss] = useState(false);
+  const [kitchen, setKitchen] = useState(false);
+  const [rest, setRest] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [size, setSize] = useState<FloorSize | null>(null);
 
@@ -31,9 +33,9 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    getLayoutSize({ offices, conference, boss }).then((s) => { if (!cancelled) setSize(s); }, () => {});
+    getLayoutSize({ offices, conference, boss, kitchen, rest }).then((s) => { if (!cancelled) setSize(s); }, () => {});
     return () => { cancelled = true; };
-  }, [offices, conference, boss]);
+  }, [offices, conference, boss, kitchen, rest]);
 
   const fail = (e: unknown): void => setError(e instanceof Error ? e.message : 'Error inesperado');
 
@@ -91,7 +93,7 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) { setError('El nombre del espacio de trabajo es obligatorio'); return; }
-    start({ kind: 'create', name: trimmed, options: { offices, conference, boss } });
+    start({ kind: 'create', name: trimmed, options: { offices, conference, boss, kitchen, rest } });
   };
 
   const onAuthenticated = async (res: SessionResponse): Promise<void> => {
@@ -136,6 +138,8 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
                 <label>Cantidad de oficinas <input name="offices" type="number" min={1} max={60} value={offices} onChange={(e) => setOffices(e.target.value)} required /></label>
               </div>
               <label className="check"><input name="conference" type="checkbox" checked={conference} onChange={(e) => setConference(e.target.checked)} /> Agregar sala de reuniones (arriba, una silla por oficina)</label>
+              <label className="check"><input name="kitchen" type="checkbox" checked={kitchen} onChange={(e) => setKitchen(e.target.checked)} /> Agregar cocina (arriba; a la izquierda de la sala de reuniones, o al medio)</label>
+              <label className="check"><input name="rest" type="checkbox" checked={rest} onChange={(e) => setRest(e.target.checked)} /> Agregar espacio de descanso con sillones y mesas redondas (arriba; a la derecha de la sala de reuniones, o al medio)</label>
               <label className="check"><input name="boss" type="checkbox" checked={boss} onChange={(e) => setBoss(e.target.checked)} /> Agregar oficina del jefe (al medio, además de las oficinas)</label>
               <p id="sizeInfo" className="hint">{size ? `Tamaño del espacio de trabajo (automático): ${size.width}×${size.height} tiles.` : ''}</p>
               <button type="submit" className="primary">Crear y entrar</button>

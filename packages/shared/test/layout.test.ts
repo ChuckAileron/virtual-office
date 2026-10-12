@@ -8,6 +8,8 @@ describe('layout', () => {
     const s = computeFloorSize({ offices: 4 });
     expect(s.conference).toBe(false);
     expect(s.boss).toBe(false);
+    expect(s.kitchen).toBe(false);
+    expect(s.rest).toBe(false);
   });
 
   it('el jefe y la sala de reuniones agrandan el espacio de trabajo', () => {
@@ -53,6 +55,56 @@ describe('layout', () => {
     }
   });
 
+  it('agrega cocina y descanso arriba, a los lados de la sala de reuniones', () => {
+    const l = generateLayout({ offices: 6, conference: true, kitchen: true, rest: true });
+    const conf = l.offices.find((o) => o.kind === 'conference')!;
+    const kitchen = l.offices.find((o) => o.kind === 'kitchen')!;
+    const rest = l.offices.find((o) => o.kind === 'rest')!;
+    // Cocina a la izquierda y descanso a la derecha de la sala, todos en la misma fila superior.
+    expect(kitchen.y).toBe(conf.y);
+    expect(rest.y).toBe(conf.y);
+    expect(kitchen.x + kitchen.w).toBeLessThanOrEqual(conf.x);
+    expect(conf.x + conf.w).toBeLessThanOrEqual(rest.x);
+    // Quedan por encima del resto del espacio de trabajo (oficinas y jefe).
+    const othersTop = Math.min(...l.offices.filter((o) => ['office', 'boss'].includes(o.kind)).map((o) => o.y));
+    expect(conf.y).toBeLessThan(othersTop);
+    // Contenido: cocina con mesadas, descanso con sillones y mesas redondas.
+    expect(countTiles(l.tiles, T.COUNTER)).toBeGreaterThan(0);
+    expect(countTiles(l.tiles, T.SOFA)).toBeGreaterThan(0);
+    expect(countTiles(l.tiles, T.ROUND_TABLE)).toBeGreaterThan(0);
+    const restTiles = l.tiles.slice(rest.y, rest.y + rest.h).flatMap((row) => row.slice(rest.x, rest.x + rest.w));
+    expect(restTiles).not.toContain(T.WALL);
+    expect(restTiles).not.toContain(T.DOOR);
+  });
+
+  it('centra cocina y descanso cuando no hay sala de reuniones', () => {
+    const l = generateLayout({ offices: 4, kitchen: true, rest: true });
+    const kitchen = l.offices.find((o) => o.kind === 'kitchen')!;
+    const rest = l.offices.find((o) => o.kind === 'rest')!;
+    const W = l.size.width;
+    expect(l.offices.some((o) => o.kind === 'conference')).toBe(false);
+    // El grupo (cocina + descanso) queda centrado horizontalmente.
+    expect(Math.abs(kitchen.x - (W - (rest.x + rest.w)))).toBeLessThanOrEqual(1);
+  });
+
+  it('la cocina y el descanso son recintos transitables y conectados', () => {
+    const l = generateLayout({ offices: 6, conference: true, kitchen: true, rest: true });
+    const start = { x: 1, y: 1 };
+    const seen = new Set([`${start.x},${start.y}`]);
+    const queue = [start];
+    while (queue.length) {
+      const { x, y } = queue.pop()!;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        const k = `${nx},${ny}`;
+        if (!seen.has(k) && isWalkable(l.tiles, nx, ny)) { seen.add(k); queue.push({ x: nx, y: ny }); }
+      }
+    }
+    let walkable = 0;
+    l.tiles.forEach((row, y) => row.forEach((_, x) => { if (isWalkable(l.tiles, x, y)) walkable++; }));
+    expect(seen.size).toBe(walkable);
+  });
+
   it('no genera plantas automáticas', () => {
     const l = generateLayout({ offices: 6, boss: true });
     expect(l.tiles.flat().every((t) => Object.values(T).includes(t as never))).toBe(true);
@@ -77,9 +129,16 @@ describe('layout', () => {
 
     for (const o of l.offices) {
       expect(o.x >= 1 && o.y >= 1 && o.x + o.w <= W - 1 && o.y + o.h <= H - 1).toBe(true);
-      // Las oficinas tienen puerta en su pared inferior; la entrada la tiene en su pared superior.
-      const doorY = o.kind === 'lobby' ? o.y - 1 : o.y + o.h - 1;
-      expect(l.tiles[doorY][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
+      if (o.kind === 'rest') {
+        // El descanso es un espacio abierto, sin paredes ni puerta propia.
+        const area = l.tiles.slice(o.y, o.y + o.h).flatMap((row) => row.slice(o.x, o.x + o.w));
+        expect(area).not.toContain(T.WALL);
+        expect(area).not.toContain(T.DOOR);
+      } else {
+        // Las oficinas tienen puerta en su pared inferior; la entrada la tiene en su pared superior.
+        const doorY = o.kind === 'lobby' ? o.y - 1 : o.y + o.h - 1;
+        expect(l.tiles[doorY][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
+      }
     }
     for (let i = 0; i < l.offices.length; i++) {
       for (let j = i + 1; j < l.offices.length; j++) {

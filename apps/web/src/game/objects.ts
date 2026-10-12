@@ -126,9 +126,71 @@ const painters: Record<string, Painter> = {
   },
 };
 
-/** Sprite de un objeto del catálogo (32 px por tile). */
-export function objectSprite(def: { type: string; w: number; h: number }): HTMLCanvasElement {
-  const hit = cache.get(def.type);
+/** Sprites laterales dibujados específicamente para los objetos que admiten esa perspectiva. */
+const sidePainters: Record<string, Painter> = {
+  bookshelf(r) {
+    r('#00000022', 8, 29, 48, 3);
+    r('#422713', 12, 2, 42, 28); r('#79502c', 14, 4, 38, 24);
+    r('#3b2210', 14, 12, 38, 2); r('#3b2210', 14, 21, 38, 2);
+    const colors = ['#d9534f', '#4a7bd0', '#e8b83a', '#3fa86a', '#9b59b6'];
+    [5, 14, 23].forEach((y, row) => {
+      let x = 17;
+      while (x < 49) { const w = 3 + ((x + row) % 3); r(colors[(x + row) % colors.length], x, y, w, 8); x += w + 2; }
+    });
+    r('#2b1a10', 54, 3, 4, 27); r('#a77949', 15, 4, 1, 24);
+  },
+  filing(r) {
+    r('#00000022', 6, 29, 20, 3);
+    r('#586174', 9, 2, 17, 28); r('#9aa3b6', 11, 3, 14, 26);
+    [5, 14, 23].forEach((y) => { r('#bac2d0', 12, y, 11, 7); r('#697286', 12, y + 6, 11, 1); r('#3b4252', 19, y + 2, 2, 2); });
+    r('#d9e0eb', 11, 3, 2, 24); r('#444c5e', 25, 4, 2, 25);
+  },
+  sofa(r) {
+    r('#00000022', 3, 29, 58, 3);
+    r('#68232e', 9, 4, 47, 22); r('#913744', 11, 6, 42, 17);
+    r('#5c202a', 4, 10, 10, 18); r('#7a2f3a', 6, 12, 7, 13);
+    r('#a5434f', 15, 18, 36, 9); r('#81303c', 15, 15, 35, 4);
+    r('#b8525d', 16, 19, 16, 7); r('#a5434f', 33, 19, 16, 7);
+    r('#4a1a22', 10, 28, 4, 3); r('#4a1a22', 51, 27, 4, 4);
+    r('#ffffff22', 15, 7, 34, 1);
+  },
+  armchair(r) {
+    r('#00000022', 4, 29, 24, 3);
+    r('#255a75', 7, 4, 18, 22); r('#3a85ab', 9, 6, 14, 17);
+    r('#1e4b62', 4, 10, 8, 18); r('#2c6d8a', 6, 12, 5, 14);
+    r('#4a9bc4', 12, 18, 11, 9); r('#347895', 12, 15, 11, 4);
+    r('#1c4559', 8, 28, 4, 3); r('#1c4559', 22, 27, 4, 4);
+    r('#ffffff33', 10, 7, 1, 9);
+  },
+  giant_tv(r, g) {
+    // Vista de canto: panel plano estrecho y un haz de proyección con una imagen simulada.
+    const beam = g.createLinearGradient(52, 0, 92, 0);
+    beam.addColorStop(0, '#72d9ff66');
+    beam.addColorStop(1, '#72d9ff00');
+    g.fillStyle = beam;
+    g.beginPath(); g.moveTo(51, 11); g.lineTo(92, 2); g.lineTo(92, 54); g.lineTo(51, 46); g.closePath(); g.fill();
+    g.fillStyle = '#53b6a544';
+    g.beginPath(); g.moveTo(56, 37); g.lineTo(70, 21); g.lineTo(78, 29); g.lineTo(87, 17); g.lineTo(92, 22); g.lineTo(92, 46); g.lineTo(56, 42); g.closePath(); g.fill();
+    g.fillStyle = '#d5fbff88'; g.beginPath(); g.arc(82, 14, 3, 0, Math.PI * 2); g.fill();
+    r('#b5f2ff66', 58, 16, 19, 1); r('#d5fbff55', 60, 19, 13, 1);
+    r('#00000033', 35, 59, 28, 4);
+    r('#202431', 44, 5, 8, 48);
+    r('#555d70', 45, 6, 2, 46);
+    r('#0e111a', 47, 7, 4, 43);
+    r('#323847', 46, 53, 5, 6);
+    r('#737d91', 35, 58, 28, 3);
+    r('#3ddc84', 47, 49, 1, 2);
+  },
+};
+
+/** Sprite de catálogo en perspectiva frontal/lateral y con volteo horizontal opcional. */
+export function objectSprite(
+  def: { type: string; w: number; h: number },
+  perspective: 'front' | 'side' = 'front',
+  flipped = false,
+): HTMLCanvasElement {
+  const key = `${def.type}:${perspective}:${flipped ? 'flip' : 'normal'}`;
+  const hit = cache.get(key);
   if (hit) return hit;
   const c = document.createElement('canvas');
   c.width = def.w * S;
@@ -136,8 +198,12 @@ export function objectSprite(def: { type: string; w: number; h: number }): HTMLC
   const g = c.getContext('2d');
   if (g) {
     const r: R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-    if (Object.hasOwn(painters, def.type)) painters[def.type](r, g);
+    const painter = perspective === 'side' ? sidePainters[def.type] ?? painters[def.type] : painters[def.type];
+    if (painter) {
+      if (flipped) { g.translate(c.width, 0); g.scale(-1, 1); }
+      painter(r, g);
+    }
   }
-  cache.set(def.type, c);
+  cache.set(key, c);
   return c;
 }

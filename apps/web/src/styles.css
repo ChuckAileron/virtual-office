@@ -69,6 +69,10 @@ button.primary { background: #4f8cff; font-weight: 600; }
 #buildItems button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font-size: 11px; line-height: 1.1; background: #1f2433; border: 2px solid transparent; border-radius: 8px; min-height: 76px; }
 #buildItems button canvas { image-rendering: pixelated; }
 #buildItems button.on { border-color: #3ddc84; background: #26402f; }
+#objectOrientation { display: flex; flex-direction: column; gap: 6px; }
+.objectOrientationChoices { display: flex; gap: 6px; }
+.objectOrientationChoices button { flex: 1; padding: 6px; font-size: 11px; }
+.objectOrientationChoices button.on { outline: 1px solid #3ddc84; background: #26402f; }
 #buildRemove.on { background: #b3302f; }
 #officeFloorSection { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #1f2433; border-radius: 8px; font-size: 12px; }
 #officeFloorSection small { color: #cfd6ff; }

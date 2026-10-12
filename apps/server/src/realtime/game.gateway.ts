@@ -7,7 +7,7 @@ import type { Server } from 'socket.io';
 import {
   ACCESSORY_CATALOG, CATALOG_LIST, DIRS, FLOOR_IMAGE_URL_PATTERN, GAME, MAX_FLOOR_DECORATIONS,
   PET_COLORS, PET_KINDS, T, floorDecorationFitsOffice, formatCode, isWalkable, officeAt, styleAllowed,
-  sanitizeAccessories, sanitizeAppearancePatch, stepPet, validatePet, validatePlacement, rebuildBlocked,
+  sanitizeAccessories, sanitizeAppearancePatch, stepPet, supportsSideView, validatePet, validatePlacement, rebuildBlocked,
   type ClientToServerEvents, type PlayerView, type ServerToClientEvents,
 } from '@vo/shared';
 import { AuthService } from '../auth/auth.service';
@@ -142,7 +142,10 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const error = validatePlacement(room, data?.kind, data?.x, data?.y);
       if (error) return void socket.emit('build_error', { error });
-      const object = await this.repo.addObject(room.code, data.kind, data.x, data.y);
+      const canFaceSide = supportsSideView(data.kind);
+      const perspective = canFaceSide && data.perspective === 'side' ? 'side' : 'front';
+      const flipped = perspective === 'side' && data.flipped === true;
+      const object = await this.repo.addObject(room.code, data.kind, data.x, data.y, perspective, flipped);
       room.objects.push(object);
       rebuildBlocked(room);
       this.server.to(this.channel(room)).emit('object_add', { object });

@@ -168,6 +168,16 @@ describe('Socket.IO', () => {
     expect((await err).error).toBeTruthy();
   });
 
+  it('persiste perspectiva lateral y volteo horizontal de los objetos', async () => {
+    const token = await register('persistencia_perspectiva');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Perspectivas', offices: 1 })).body;
+    const repository = app.get(Repository);
+    const code = normalizeCode(room.code);
+    const object = await repository.addObject(code, 'bookshelf', 3, 6, 'side', true);
+    expect(object).toMatchObject({ type: 'bookshelf', perspective: 'side', flipped: true });
+    expect(await repository.loadObjects(code)).toContainEqual(object);
+  });
+
   it('un segundo inicio de sesión reemplaza al primero', async () => {
     const t = await register('doble');
     const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${t}`).send({ name: 'D' })).body;

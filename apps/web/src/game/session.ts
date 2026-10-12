@@ -147,7 +147,9 @@ export class GameSession {
   }
 
   /** Acciones de red usadas por el modo decorar. */
-  sendPlace = (kind: string, x: number, y: number): void => { if (this.socket.connected) this.socket.emit('place', { kind, x, y }); };
+  sendPlace = (kind: string, x: number, y: number, perspective: 'front' | 'side' = 'front', flipped = false): void => {
+    if (this.socket.connected) this.socket.emit('place', { kind, x, y, perspective, flipped });
+  };
   sendRemoveObject = (id: number): void => { if (this.socket.connected) this.socket.emit('remove_object', { id }); };
   sendPlaceFloorDecoration = (decoration: Omit<FloorDecoration, 'id'>): void => {
     if (this.socket.connected) this.socket.emit('place_floor_decoration', decoration);
@@ -305,7 +307,7 @@ class GameBuild {
     return new BuildController(
       () => s.state,
       {
-        place: (k, x, y) => s.sendPlace(k, x, y),
+        place: (k, x, y, perspective, flipped) => s.sendPlace(k, x, y, perspective, flipped),
         removeObject: (id) => s.sendRemoveObject(id),
         placeFloorDecoration: (imageUrl, x, y, w, h) => s.sendPlaceFloorDecoration({ imageUrl, x, y, w, h }),
         removeFloorDecoration: (id) => s.sendRemoveFloorDecoration(id),

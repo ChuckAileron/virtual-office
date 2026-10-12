@@ -29,7 +29,7 @@ export class RoomsController {
   @Post('rooms')
   async create(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: { name?: unknown; offices?: unknown; conference?: unknown; boss?: unknown } | undefined,
+    @Body() body: { name?: unknown; offices?: unknown; conference?: unknown; boss?: unknown; kitchen?: unknown; rest?: unknown } | undefined,
   ) {
     const token = /^Bearer\s+(.+)$/i.exec(authorization ?? '')?.[1];
     if (!(await this.auth.userFromToken(token))) {
@@ -37,7 +37,9 @@ export class RoomsController {
     }
     const name = cleanText(body?.name, 32);
     if (!name) throw new HttpException('El nombre del espacio de trabajo es obligatorio', HttpStatus.BAD_REQUEST);
-    const room = await this.rooms.create(name, { offices: body?.offices, conference: body?.conference, boss: body?.boss });
+    const room = await this.rooms.create(name, {
+      offices: body?.offices, conference: body?.conference, boss: body?.boss, kitchen: body?.kitchen, rest: body?.rest,
+    });
     return this.rooms.toPublic(room);
   }
 }

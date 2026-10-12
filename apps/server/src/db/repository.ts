@@ -42,7 +42,8 @@ const SCHEMA = [
     room_code TEXT NOT NULL,
     type TEXT NOT NULL,
     x INTEGER NOT NULL,
-    y INTEGER NOT NULL
+    y INTEGER NOT NULL,
+    orientation TEXT NOT NULL DEFAULT 'front'
   )`,
   `CREATE TABLE IF NOT EXISTS pets (
     id SERIAL PRIMARY KEY,
@@ -78,6 +79,7 @@ export class Repository {
 
   async migrate(): Promise<void> {
     for (const sql of SCHEMA) await this.db.query(sql);
+    await this.db.query("ALTER TABLE objects ADD COLUMN IF NOT EXISTS orientation TEXT NOT NULL DEFAULT 'front'");
   }
 
   /** Devuelve null si el nombre ya existe (sin distinguir mayúsculas). */
@@ -146,9 +148,13 @@ export class Repository {
     }));
   }
 
-  async addObject(code: string, type: string, x: number, y: number): Promise<PlacedObject> {
-    const r = await this.db.query('INSERT INTO objects (room_code, type, x, y) VALUES ($1, $2, $3, $4) RETURNING id', [code, type, x, y]);
-    return { id: Number(r.rows[0].id), type, x, y };
+  async addObject(code: string, type: string, x: number, y: number, perspective: 'front' | 'side' = 'front', flipped = false): Promise<PlacedObject> {
+    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : 'front';
+    const r = await this.db.query(
+      'INSERT INTO objects (room_code, type, x, y, orientation) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [code, type, x, y, orientation],
+    );
+    return { id: Number(r.rows[0].id), type, x, y, perspective, flipped: perspective === 'side' && flipped };
   }
 
   async removeObject(code: string, id: number): Promise<void> {
@@ -156,8 +162,12 @@ export class Repository {
   }
 
   async loadObjects(code: string): Promise<PlacedObject[]> {
-    const r = await this.db.query('SELECT id, type, x, y FROM objects WHERE room_code = $1 ORDER BY id', [code]);
-    return r.rows.map((o) => ({ id: Number(o.id), type: o.type, x: Number(o.x), y: Number(o.y) }));
+    const r = await this.db.query('SELECT id, type, x, y, orientation FROM objects WHERE room_code = $1 ORDER BY id', [code]);
+    return r.rows.map((o) => ({
+      id: Number(o.id), type: o.type, x: Number(o.x), y: Number(o.y),
+      perspective: String(o.orientation).startsWith('side') ? 'side' : 'front',
+      flipped: o.orientation === 'side-flipped',
+    }));
   }
 
   async addPet(code: string, kind: string, color: string, x: number, y: number): Promise<Pet> {

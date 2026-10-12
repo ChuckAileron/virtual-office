@@ -39,6 +39,8 @@ export interface FloorOptions {
   offices: number | string;
   conference: boolean;
   boss: boolean;
+  kitchen: boolean;
+  rest: boolean;
 }
 
 export const register = (username: string, password: string, appearance: Appearance) =>
@@ -48,12 +50,18 @@ export const login = (username: string, password: string) =>
   request<SessionResponse>('/api/login', { method: 'POST', body: { username, password } });
 
 export const getLayoutSize = (o: FloorOptions) =>
-  request<FloorSize>(`/api/layout?${new URLSearchParams({ offices: String(o.offices), conference: String(o.conference), boss: String(o.boss) })}`);
+  request<FloorSize>(`/api/layout?${new URLSearchParams({
+    offices: String(o.offices), conference: String(o.conference), boss: String(o.boss), kitchen: String(o.kitchen), rest: String(o.rest),
+  })}`);
 
 export const getRoom = (code: string) => request<PublicRoom>(`/api/rooms/${encodeURIComponent(code)}`);
 
 export const createRoom = (name: string, o: FloorOptions, token: string) =>
-  request<PublicRoom>('/api/rooms', { method: 'POST', body: { name, offices: Number(o.offices), conference: o.conference, boss: o.boss }, token });
+  request<PublicRoom>('/api/rooms', {
+    method: 'POST',
+    body: { name, offices: Number(o.offices), conference: o.conference, boss: o.boss, kitchen: o.kitchen, rest: o.rest },
+    token,
+  });
 
 export async function uploadFloorImage(file: File, token: string): Promise<{ imageUrl: string }> {
   const form = new FormData();

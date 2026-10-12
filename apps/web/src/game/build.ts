@@ -1,4 +1,4 @@
-import type { Accessories, CatalogEntry } from '@vo/shared';
+import { supportsSideView, type Accessories, type CatalogEntry } from '@vo/shared';
 import { canPlaceFloorDecoration, canPlaceObject, canPlacePet, floorDecorationAt, objectAt, petAt } from './placement';
 import type { GameState } from './state';
 
@@ -8,6 +8,8 @@ export type BuildTab = 'office' | 'char';
 export interface BuildView {
   open: boolean;
   selected: CatalogEntry | null;
+  perspective: 'front' | 'side';
+  flipped: boolean;
   selectedFloorDecoration: { imageUrl: string; w: number; h: number } | null;
   petKind: string | null;
   petColor: string;
@@ -16,7 +18,7 @@ export interface BuildView {
 }
 
 export interface BuildActions {
-  place(kind: string, x: number, y: number): void;
+  place(kind: string, x: number, y: number, perspective: 'front' | 'side', flipped: boolean): void;
   removeObject(id: number): void;
   placeFloorDecoration(imageUrl: string, x: number, y: number, w: number, h: number): void;
   removeFloorDecoration(id: number): void;
@@ -29,6 +31,8 @@ export class BuildController implements BuildView {
   open = false;
   tab: BuildTab = 'office';
   selected: CatalogEntry | null = null;
+  perspective: 'front' | 'side' = 'front';
+  flipped = false;
   selectedFloorDecoration: { imageUrl: string; w: number; h: number } | null = null;
   petKind: string | null = null;
   petColor = '';
@@ -69,6 +73,8 @@ export class BuildController implements BuildView {
 
   private clearSelection(): void {
     this.selected = null;
+    this.perspective = 'front';
+    this.flipped = false;
     this.selectedFloorDecoration = null;
     this.petKind = null;
     this.removing = false;
@@ -98,7 +104,22 @@ export class BuildController implements BuildView {
     const next = def && this.selected?.type === def.type ? null : def;
     this.clearSelection();
     this.selected = next;
+    this.perspective = 'front';
+    this.flipped = false;
     this.setMessage(next ? `${next.name}: haz clic en el piso para colocarlo` : DEFAULT_MSG);
+  }
+
+  setPerspective(perspective: 'front' | 'side'): void {
+    if (!this.selected || !supportsSideView(this.selected.type)) return;
+    this.perspective = perspective;
+    if (perspective === 'front') this.flipped = false;
+    this.notify();
+  }
+
+  setFlipped(flipped: boolean): void {
+    if (!this.selected || !supportsSideView(this.selected.type) || this.perspective !== 'side') return;
+    this.flipped = flipped;
+    this.notify();
   }
 
   selectFloorDecoration(imageUrl: string, w: number, h: number): void {
@@ -145,7 +166,7 @@ export class BuildController implements BuildView {
       const d = this.selectedFloorDecoration;
       this.actions.placeFloorDecoration(d.imageUrl, x, y, d.w, d.h);
     } else if (this.selected) {
-      this.actions.place(this.selected.type, x, y);
+      this.actions.place(this.selected.type, x, y, this.perspective, this.flipped);
     }
   }
 

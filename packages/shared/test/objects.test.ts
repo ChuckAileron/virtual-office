@@ -67,6 +67,20 @@ describe('validatePlacement', () => {
     expect(placed).toBe(true);
   });
 
+  it('la sala de reuniones deja espacio para la TV gigante en cualquiera de los costados', () => {
+    for (const offices of [1, 6, 20]) {
+      const layout = generateLayout({ offices, conference: true });
+      const conference = layout.offices.find((o) => o.kind === 'conference')!;
+      const room = mkRoom(layout.tiles, [], layout.offices);
+      const y = conference.y + 1;
+      const leftX = conference.x + 1;
+      const rightX = conference.x + conference.w - CATALOG.giant_tv.w - 1;
+
+      expect(validatePlacement(room, 'giant_tv', leftX, y)).toBeNull();
+      expect(validatePlacement(room, 'giant_tv', rightX, y)).toBeNull();
+    }
+  });
+
   it('un jugador encima impide un objeto sólido, pero no una alfombra', () => {
     const r = mkRoom(layout.tiles);
     r.players.set('a', { x: px, y: py });

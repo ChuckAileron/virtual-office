@@ -9,10 +9,15 @@ export const T = {
   BOSS: 8,
   CONF: 9,
   LOBBY: 10,
+  KITCHEN: 11,
+  COUNTER: 12,
+  REST: 13,
+  SOFA: 14,
+  ROUND_TABLE: 15,
 } as const;
 
 export type Tiles = number[][];
-export type RoomKind = 'office' | 'boss' | 'conference' | 'lobby';
+export type RoomKind = 'office' | 'boss' | 'conference' | 'lobby' | 'kitchen' | 'rest';
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export const DIRS: Record<Dir, readonly [number, number]> = {
   up: [0, -1],
@@ -38,6 +43,8 @@ export interface FloorSize {
   offices: number;
   conference: boolean;
   boss: boolean;
+  kitchen: boolean;
+  rest: boolean;
   /** Versión del trazado, para regenerar espacios creados con un diseño anterior. */
   version: number;
 }
@@ -46,6 +53,8 @@ export interface LayoutOptions {
   offices?: unknown;
   conference?: unknown;
   boss?: unknown;
+  kitchen?: unknown;
+  rest?: unknown;
 }
 
 export interface Layout {
@@ -59,6 +68,8 @@ export interface PlacedObject {
   type: string;
   x: number;
   y: number;
+  perspective?: 'front' | 'side';
+  flipped?: boolean;
 }
 
 /** Imagen colocada como capa de piso dentro de un recinto. Dimensiones en tiles. */

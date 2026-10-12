@@ -30,7 +30,7 @@ beforeEach(() => {
   document.body.append(container);
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    const data = url.startsWith('/api/layout') ? { width: 24, height: 20, offices: 3, conference: false, boss: false } : room;
+    const data = url.startsWith('/api/layout') ? { width: 24, height: 20, offices: 3, conference: false, boss: false, kitchen: false, rest: false } : room;
     return { ok: true, json: async () => data };
   }));
 });
