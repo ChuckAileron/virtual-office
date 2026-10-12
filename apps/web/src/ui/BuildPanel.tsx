@@ -3,6 +3,7 @@ import { TILE } from '../game/constants';
 import { objectSprite } from '../game/objects';
 import { petSprite } from '../game/pets';
 import { SPRITE_W, getSprite } from '../game/sprites';
+import { HAIRS, PANTS, SHIRTS, SKINS, STYLE_COUNT } from '../game/appearance';
 import type { GameSession } from '../game/session';
 import type { Accessories, Appearance, CatalogEntry } from '@vo/shared';
 
@@ -47,6 +48,18 @@ function AccIcon({ appearance, slot, id, acc }: { appearance: Appearance; slot: 
   );
 }
 
+const HEAD_CROP = 20;
+
+function StyleIcon({ appearance, style }: { appearance: Appearance; style: number }) {
+  return (
+    <Icon
+      width={SPRITE_W}
+      height={HEAD_CROP}
+      draw={(g) => g.drawImage(getSprite({ ...appearance, style }, 'down', 0), 0, 0, SPRITE_W, HEAD_CROP, 0, 0, SPRITE_W, HEAD_CROP)}
+    />
+  );
+}
+
 export function BuildPanel({ session }: { session: GameSession }) {
   const { build, state } = session;
   if (!state || !build.open) return null;
@@ -75,6 +88,21 @@ export function BuildPanel({ session }: { session: GameSession }) {
       {colors.map((hex) => (
         <button key={hex} type="button" style={{ background: hex }} className={acc[key] === hex ? 'on' : ''} onClick={() => session.sendLook({ ...acc, [key]: hex })} />
       ))}
+    </div>
+  );
+
+  const look = me?.appearance;
+
+  type LookColor = keyof Pick<Appearance, 'skin' | 'hair' | 'shirt' | 'pants'>;
+
+  const lookColorRow = (label: string, key: LookColor, palette: readonly string[]) => (
+    <div className="lookRow">
+      <span>{label}</span>
+      <div className="accColors">
+        {palette.map((hex) => (
+          <button key={hex} type="button" style={{ background: hex }} className={look?.[key] === hex ? 'on' : ''} onClick={() => session.sendAppearance({ [key]: hex })} />
+        ))}
+      </div>
     </div>
   );
 
@@ -123,6 +151,23 @@ export function BuildPanel({ session }: { session: GameSession }) {
         </div>
       ) : (
         <div id="charTab">
+          <div className="accSection">
+            <strong>💇 Peinado</strong>
+            <div className="accGrid">
+              {Array.from({ length: STYLE_COUNT }, (_, s) => (
+                <button key={s} type="button" title={`Peinado ${s + 1}`} className={look?.style === s ? 'on' : ''} onClick={() => session.sendAppearance({ style: s })}>
+                  {me && <StyleIcon appearance={me.appearance} style={s} />}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="accSection">
+            <strong>🎨 Colores</strong>
+            {lookColorRow('Piel', 'skin', SKINS)}
+            {lookColorRow('Pelo', 'hair', HAIRS)}
+            {lookColorRow('Polera', 'shirt', SHIRTS)}
+            {lookColorRow('Pantalón / falda', 'pants', PANTS)}
+          </div>
           <div className="accSection"><strong>🎩 Gorros</strong>{slotGrid('hat', state.accessories.hats)}{colorRow(!!acc.hat, 'hatColor')}</div>
           <div className="accSection"><strong>👓 Lentes</strong>{slotGrid('glasses', state.accessories.glasses)}</div>
           <div className="accSection"><strong>🎒 Accesorios</strong>{slotGrid('extra', state.accessories.extras)}{colorRow(!!acc.extra, 'extraColor')}</div>

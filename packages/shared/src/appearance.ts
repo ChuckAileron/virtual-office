@@ -5,6 +5,25 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export const STYLES = 3;
 const COLOR_KEYS = ['skin', 'hair', 'shirt', 'pants'] as const;
 
+/** Cambio parcial permitido en la apariencia: peinado y colores del cuerpo. */
+export type AppearancePatch = Partial<Pick<Appearance, 'style' | 'skin' | 'hair' | 'shirt' | 'pants'>>;
+
+/**
+ * Valida y normaliza un cambio parcial de apariencia (peinado / colores).
+ * Descarta los campos inválidos; siempre devuelve un objeto.
+ */
+export function sanitizeAppearancePatch(p: unknown): AppearancePatch {
+  if (!p || typeof p !== 'object') return {};
+  const src = p as Record<string, unknown>;
+  const out: AppearancePatch = {};
+  if (typeof src.style === 'number' && Number.isInteger(src.style) && src.style >= 0 && src.style < STYLES) out.style = src.style;
+  for (const k of COLOR_KEYS) {
+    const v = src[k];
+    if (typeof v === 'string' && HEX.test(v)) out[k] = v.toLowerCase();
+  }
+  return out;
+}
+
 /** Valida y normaliza un personaje enviado por el cliente. Devuelve null si es inválido. */
 export function sanitizeAppearance(a: unknown): Appearance | null {
   if (!a || typeof a !== 'object') return null;

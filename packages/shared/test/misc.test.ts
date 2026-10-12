@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESSORY_COLORS, formatCode, normalizeCode, sanitizeAccessories, sanitizeAppearance, validateCredentials } from '../src';
+import { ACCESSORY_COLORS, formatCode, normalizeCode, sanitizeAccessories, sanitizeAppearance, sanitizeAppearancePatch, validateCredentials } from '../src';
 
 const ok = { gender: 'female', style: 2, skin: '#FFDCBC', hair: '#0b0b0b', shirt: '#ec4899', pants: '#334155' };
 
@@ -27,6 +27,14 @@ describe('apariencia', () => {
     expect(sanitizeAppearance({ ...ok, style: 9 })).toBeNull();
     expect(sanitizeAppearance({ ...ok, shirt: 'red;}' })).toBeNull();
     expect(sanitizeAppearance(null)).toBeNull();
+  });
+
+  it('normaliza cambios parciales de apariencia', () => {
+    expect(sanitizeAppearancePatch({ style: 1, skin: '#FFDCBC', shirt: 'red;}' })).toEqual({ style: 1, skin: '#ffdcbc' });
+    expect(sanitizeAppearancePatch({ style: 9 })).toEqual({});
+    expect(sanitizeAppearancePatch({ hair: '#EF4444', pants: '#334155' })).toEqual({ hair: '#ef4444', pants: '#334155' });
+    expect(sanitizeAppearancePatch(null)).toEqual({});
+    expect(sanitizeAppearancePatch('x')).toEqual({});
   });
 });
 

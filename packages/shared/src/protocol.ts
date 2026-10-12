@@ -1,4 +1,5 @@
 import type { AccessoryCatalog } from './accessories';
+import type { AppearancePatch } from './appearance';
 import type { CatalogEntry } from './objects';
 import type { Accessories, Appearance, Dir, FloorSize, Office, PlacedObject, Pet, Tiles } from './types';
 
@@ -77,7 +78,7 @@ export interface ClientToServerEvents {
   remove_object: (p: { id: number }) => void;
   place_pet: (p: { kind: string; color: string; x: number; y: number }) => void;
   remove_pet: (p: { id: number }) => void;
-  set_look: (p: { acc: Partial<Accessories> }) => void;
+  set_look: (p: { acc?: Partial<Accessories>; look?: AppearancePatch }) => void;
   /** Indicador de micrófono activo (solo informativo para la lista de jugadores). */
   voice: (p: { on: boolean }) => void;
   /** Pide un token de LiveKit para el piso actual. */

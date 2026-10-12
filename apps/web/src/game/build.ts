@@ -85,7 +85,7 @@ export class BuildController implements BuildView {
     this.clearSelection();
     this.hover = null;
     this.setMessage(tab === 'char'
-      ? 'Elige gorro, lentes y accesorios: se aplican al instante. Clic de nuevo para quitarlos.'
+      ? 'Elige peinado, colores y accesorios: se aplican al instante. Clic de nuevo para quitar.'
       : DEFAULT_MSG);
   }
 

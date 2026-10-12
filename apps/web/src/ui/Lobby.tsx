@@ -37,7 +37,17 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
 
   const fail = (e: unknown): void => setError(e instanceof Error ? e.message : 'Error inesperado');
 
-  const remember = (room: PublicRoom): void => setRooms((r) => upsertRoom(r, { code: room.code, name: room.name }));
+  const remember = (room: PublicRoom): void => {
+    // Persistir antes de entrar al piso (que desmonta Lobby). No hacer I/O
+    // dentro de un updater funcional: React puede diferirlo o descartarlo.
+    const next = upsertRoom(rooms, { code: room.code, name: room.name });
+    setRooms(next);
+  };
+
+  const forget = (code: string): void => {
+    const next = removeRoom(rooms, code);
+    setRooms(next);
+  };
 
   const run = async (p: Pending, token: string): Promise<void> => {
     try {
@@ -132,7 +142,7 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
           <FloorList
             rooms={rooms}
             onEnter={(code) => void joinByCode(code)}
-            onForget={(code) => setRooms((r) => removeRoom(r, code))}
+            onForget={forget}
           />
         </div>
       )}

@@ -1,6 +1,7 @@
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { Pool } from 'pg';
 import { APP_CONFIG, AppConfig } from '../config';
+import { closeMemory, openMemory, restoreMemory } from './memory-store';
 import { DB, Queryable, Repository } from './repository';
 
 @Global()
@@ -10,12 +11,8 @@ import { DB, Queryable, Repository } from './repository';
       provide: DB,
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig): Queryable => {
-        if (config.databaseUrl === 'memory') {
-          // Solo desarrollo: base en memoria (se pierde al reiniciar)
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { newDb } = require('pg-mem');
-          return new (newDb().adapters.createPg().Pool)();
-        }
+        // Modo desarrollo sin Postgres: base en memoria persistida en un archivo.
+        if (config.databaseUrl === 'memory') return openMemory(config.memoryFile);
         return new Pool({ connectionString: config.databaseUrl, max: 10 });
       },
     },
@@ -25,6 +22,7 @@ import { DB, Queryable, Repository } from './repository';
       useFactory: async (db: Queryable) => {
         const repo = new Repository(db);
         await repo.migrate();
+        restoreMemory();
         return repo;
       },
     },
@@ -35,6 +33,7 @@ export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DB) private readonly db: Queryable) {}
 
   async onApplicationShutdown() {
+    closeMemory();
     await (this.db as Partial<Pool>).end?.();
   }
 }

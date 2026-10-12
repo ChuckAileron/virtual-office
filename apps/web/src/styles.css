@@ -88,4 +88,7 @@ button.primary { background: #4f8cff; font-weight: 600; }
 .accColors button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid #ffffff55; }
 .accColors button.on { border-color: #3ddc84; box-shadow: 0 0 0 2px #3ddc84; }
 .accColors[hidden] { display: none; }
+.lookRow { display: flex; align-items: center; gap: 8px; }
+.lookRow > span { flex: 0 0 92px; font-size: 12px; color: #cfd6ff; }
+.lookRow .accColors { flex: 1; }
 #buildMsg.err { color: #ff8a8a; }

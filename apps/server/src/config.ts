@@ -9,6 +9,8 @@ export interface AppConfig {
   idleMs: number;
   petTickMs: number;
   webDist: string;
+  /** Archivo de persistencia del modo `memory` (desarrollo sin Postgres). */
+  memoryFile: string;
   trustProxy: boolean;
   production: boolean;
 }
@@ -42,6 +44,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     idleMs: num(env.IDLE_MS, 5 * 60 * 1000),
     petTickMs: num(env.PET_TICK_MS, 700),
     webDist: env.WEB_DIST || path.join(__dirname, '..', '..', 'web', 'dist'),
+    memoryFile: env.MEMORY_FILE || path.join(__dirname, '..', '..', '..', 'data', 'offices.json'),
     trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
     production,
   };

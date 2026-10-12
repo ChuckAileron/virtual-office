@@ -1,4 +1,4 @@
-import type { Accessories, PlayerView } from '@vo/shared';
+import type { Accessories, AppearancePatch, PlayerView } from '@vo/shared';
 import { GAME } from '@vo/shared';
 import { getConfig } from '../net/api';
 import { createSocket, type GameSocket } from '../net/socket';
@@ -141,6 +141,7 @@ export class GameSession {
   sendPlacePet = (kind: string, color: string, x: number, y: number): void => { if (this.socket.connected) this.socket.emit('place_pet', { kind, color, x, y }); };
   sendRemovePet = (id: number): void => { if (this.socket.connected) this.socket.emit('remove_pet', { id }); };
   sendLook = (acc: Partial<Accessories>): void => { if (this.socket.connected) this.socket.emit('set_look', { acc }); };
+  sendAppearance = (look: AppearancePatch): void => { if (this.socket.connected) this.socket.emit('set_look', { look }); };
 
   sendChat(text: string): void {
     const t = text.trim();

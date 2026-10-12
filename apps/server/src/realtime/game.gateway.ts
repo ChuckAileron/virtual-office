@@ -4,7 +4,7 @@ import { OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
 import type { Server } from 'socket.io';
 import {
   ACCESSORY_CATALOG, CATALOG_LIST, DIRS, GAME, PET_COLORS, PET_KINDS, T, formatCode, isWalkable, officeAt,
-  sanitizeAccessories, stepPet, validatePet, validatePlacement, rebuildBlocked,
+  sanitizeAccessories, sanitizeAppearancePatch, stepPet, validatePet, validatePlacement, rebuildBlocked,
   type ClientToServerEvents, type PlayerView, type ServerToClientEvents,
 } from '@vo/shared';
 import { AuthService } from '../auth/auth.service';
@@ -174,7 +174,11 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       const now = Date.now();
       if (now - p.lastLook < LOOK_THROTTLE_MS) return;
       p.lastLook = now;
-      p.appearance = { ...p.appearance, acc: sanitizeAccessories(data?.acc) };
+      p.appearance = {
+        ...p.appearance,
+        ...sanitizeAppearancePatch(data?.look),
+        acc: data?.acc ? sanitizeAccessories(data.acc) : p.appearance.acc,
+      };
       await this.repo.updateAppearance(p.userId, p.appearance);
       this.server.to(this.channel(room)).emit('look', { id: p.id, appearance: p.appearance });
     }));
