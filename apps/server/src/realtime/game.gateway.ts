@@ -265,12 +265,19 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
   }
 
   private spawnPoint(room: RoomRuntime) {
-    const free: Array<{ x: number; y: number }> = [];
+    // Los personajes aparecen en la entrada (lobby); si el espacio es antiguo y no
+    // tiene lobby, se usa cualquier tile libre del pasillo.
+    const lobby: Array<{ x: number; y: number }> = [];
+    const fallback: Array<{ x: number; y: number }> = [];
     for (let y = 0; y < room.tiles.length; y++) {
       for (let x = 0; x < room.tiles[0].length; x++) {
-        if (room.tiles[y][x] === T.FLOOR && !room.blocked.has(`${x},${y}`)) free.push({ x, y });
+        if (room.blocked.has(`${x},${y}`)) continue;
+        const t = room.tiles[y][x];
+        if (t === T.LOBBY) lobby.push({ x, y });
+        else if (t === T.FLOOR) fallback.push({ x, y });
       }
     }
+    const free = lobby.length ? lobby : fallback;
     return free[Math.floor(Math.random() * free.length)] ?? null;
   }
 

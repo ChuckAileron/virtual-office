@@ -15,8 +15,8 @@ export const PET_COLORS = [
   { id: 'golden', name: 'Dorado', hex: '#d8b05a' },
 ];
 export const MAX_PETS = 20;
-// Las mascotas solo pisan el suelo de oficinas, oficina del jefe y sala de reuniones
-const PET_TILES = new Set<number>([T.OFFICE, T.BOSS, T.CONF]);
+// Las mascotas solo pisan el suelo de oficinas, oficina del jefe, sala de reuniones y la entrada
+const PET_TILES = new Set<number>([T.OFFICE, T.BOSS, T.CONF, T.LOBBY]);
 
 const isKind = (k: unknown) => PET_KINDS.some((p) => p.type === k);
 const isColor = (c: unknown) => PET_COLORS.some((p) => p.id === c);

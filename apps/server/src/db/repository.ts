@@ -126,6 +126,15 @@ export class Repository {
     throw new Error('No se pudo generar un código único');
   }
 
+  async updateRoomLayout(code: string, layout: Layout): Promise<void> {
+    await this.db.query('UPDATE rooms SET size = $1, tiles = $2, offices = $3 WHERE code = $4', [
+      JSON.stringify(layout.size),
+      JSON.stringify(layout.tiles),
+      JSON.stringify(layout.offices),
+      code,
+    ]);
+  }
+
   async loadRooms(): Promise<RoomRow[]> {
     const r = await this.db.query('SELECT * FROM rooms');
     return r.rows.map((row) => ({

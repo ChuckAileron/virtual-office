@@ -8,10 +8,11 @@ export const T = {
   CHAIR: 7,
   BOSS: 8,
   CONF: 9,
+  LOBBY: 10,
 } as const;
 
 export type Tiles = number[][];
-export type RoomKind = 'office' | 'boss' | 'conference';
+export type RoomKind = 'office' | 'boss' | 'conference' | 'lobby';
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export const DIRS: Record<Dir, readonly [number, number]> = {
   up: [0, -1],
@@ -37,6 +38,8 @@ export interface FloorSize {
   offices: number;
   conference: boolean;
   boss: boolean;
+  /** Versión del trazado, para regenerar espacios creados con un diseño anterior. */
+  version: number;
 }
 
 export interface LayoutOptions {

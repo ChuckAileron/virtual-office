@@ -1,8 +1,8 @@
 import { T, floorDecorationFitsOffice, footprint, officeAt, type CatalogEntry, type PlacedObject } from '@vo/shared';
 import type { GameState } from './state';
 
-const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF]);
-const PET_FLOORS = new Set<number>([T.OFFICE, T.BOSS, T.CONF]);
+const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF, T.LOBBY]);
+const PET_FLOORS = new Set<number>([T.OFFICE, T.BOSS, T.CONF, T.LOBBY]);
 const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 type Placement = Pick<GameState, 'room' | 'objects' | 'defs' | 'players' | 'pets'>;

@@ -36,7 +36,7 @@ export interface CatalogEntry extends ObjectDef {
 
 export const CATALOG_LIST: CatalogEntry[] = Object.entries(CATALOG).map(([type, d]) => ({ type, ...d }));
 export const MAX_OBJECTS = 300;
-const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF]);
+const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF, T.LOBBY]);
 
 export const defOf = (type: unknown): ObjectDef | null =>
   typeof type === 'string' && Object.hasOwn(CATALOG, type) ? CATALOG[type] : null;

@@ -12,6 +12,7 @@ const FLOORS = {
   office: ['#b9a27c', '#b09872'],
   boss: ['#7a4a52', '#703f48'],
   conference: ['#a9b8a2', '#a0af99'],
+  lobby: ['#cbb27f', '#c2a976'],
   hall: ['#8ea4c4', '#869cbd'],
 } as const;
 
@@ -51,7 +52,7 @@ function drawTileBase(ctx: CanvasRenderingContext2D, state: GameState, t: number
     const dark = style.pattern === 'checker' && ((x - office!.x + y - office!.y) % 2 === 1);
     ctx.fillStyle = dark ? shade(style.color, -28) : style.color;
   } else {
-    const kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.OFFICE ? 'office' : t === T.FLOOR ? 'hall' : roomKindAt(state, x, y);
+    const kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.LOBBY ? 'lobby' : t === T.OFFICE ? 'office' : t === T.FLOOR ? 'hall' : roomKindAt(state, x, y);
     ctx.fillStyle = FLOORS[kind][(x + y) % 2 === 0 ? 0 : 1];
   }
   ctx.fillRect(px, py, TILE, TILE);

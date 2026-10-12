@@ -1,6 +1,6 @@
 import { Layout, LayoutOptions, FloorSize, Office, Point, Tiles, T } from './types';
 
-const WALKABLE = new Set<number>([T.FLOOR, T.OFFICE, T.DOOR, T.CHAIR, T.BOSS, T.CONF]);
+const WALKABLE = new Set<number>([T.FLOOR, T.OFFICE, T.DOOR, T.CHAIR, T.BOSS, T.CONF, T.LOBBY]);
 
 export const OFFICE_W = 9; // incluye paredes
 export const OFFICE_H = 7;
@@ -8,6 +8,10 @@ const BOSS_W = 15;
 const BOSS_H = 9;
 const CONF_H = 8;
 const CONF_MIN_W = 9;
+/** Alto total de la franja de entrada, incluida la pared inferior que la cierra. */
+const LOBBY_H = 5;
+/** Filas de pasillo de entrada entre la última oficina y el muro que cierra el espacio de trabajo. */
+const ENTRANCE_HALL = 3;
 const GAP = 2; // espacio libre entre habitaciones
 const MARGIN = 2; // borde del piso hasta la primera habitación (pared + 1 tile de pasillo)
 
@@ -30,11 +34,22 @@ interface PlannedRoom {
   perSide?: number;
 }
 
+/** Rectángulo interior de la entrada (lobby), sin paredes propias. */
+export interface PlannedLobby {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Se sube al cambiar el trazado para regenerar los espacios creados con un diseño anterior. */
+export const LAYOUT_VERSION = 3;
+
 /**
  * Calcula la distribución del espacio de trabajo a partir de la cantidad de oficinas y de si
  * hay sala de reuniones (arriba) y oficina del jefe (al medio).
  */
-export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: PlannedRoom[] } {
+export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: PlannedRoom[]; lobby: PlannedLobby } {
   const n = clampInt(opts.offices, 1, LIMITS.maxOffices);
   const conference = toBool(opts.conference);
   const boss = toBool(opts.boss);
@@ -76,9 +91,13 @@ export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: 
   officeRows(topRows);
   if (boss) section('boss', BOSS_W, BOSS_H);
   officeRows(bottomRows);
-  const height = y - GAP + MARGIN;
+  // El recinto del espacio de trabajo (con su borde inferior) queda por encima de la entrada.
+  // La entrada (lobby) es una franja a todo el ancho al fondo, con una puerta que la conecta.
+  const workspaceH = y - GAP + ENTRANCE_HALL + 1; // incluye la fila de pared que cierra el recinto
+  const lobby: PlannedLobby = { x: 1, y: workspaceH, w: width - 2, h: LOBBY_H - 1 };
+  const height = workspaceH + LOBBY_H;
 
-  return { size: { width, height, offices: n, conference, boss }, rooms };
+  return { size: { width, height, offices: n, conference, boss, version: LAYOUT_VERSION }, rooms, lobby };
 }
 
 export function computeFloorSize(opts: LayoutOptions): FloorSize {
@@ -86,7 +105,7 @@ export function computeFloorSize(opts: LayoutOptions): FloorSize {
 }
 
 export function generateLayout(opts: LayoutOptions): Layout {
-  const { size, rooms: placed } = planLayout(opts);
+  const { size, rooms: placed, lobby } = planLayout(opts);
   const { width: W, height: H } = size;
 
   const tiles: Tiles = Array.from({ length: H }, () => new Array<number>(W).fill(T.FLOOR));
@@ -129,6 +148,18 @@ export function generateLayout(opts: LayoutOptions): Layout {
     offices.push({ id: offices.length + 1, kind: r.kind, name, x: r.x, y: r.y, w: r.w, h: r.h });
   }
 
+  // Pared que contiene el espacio de trabajo (queda por encima de la entrada) con su puerta de acceso.
+  const dividerY = lobby.y - 1;
+  for (let x = 0; x < W; x++) tiles[dividerY][x] = T.WALL;
+  const doorX = Math.floor(W / 2);
+  for (let x = doorX - 1; x <= doorX + 1; x++) tiles[dividerY][x] = T.DOOR;
+
+  // Suelo de la entrada (lobby): franja a todo el ancho al fondo, acceso al espacio de trabajo.
+  for (let y = lobby.y; y < lobby.y + lobby.h; y++) {
+    for (let x = lobby.x; x < lobby.x + lobby.w; x++) tiles[y][x] = T.LOBBY;
+  }
+  offices.push({ id: offices.length + 1, kind: 'lobby', name: 'Entrada', x: lobby.x, y: lobby.y, w: lobby.w, h: lobby.h });
+
   return { size, tiles, offices };
 }
 
@@ -138,6 +169,11 @@ export function isWalkable(tiles: Tiles, x: number, y: number): boolean {
 
 export function officeAt(offices: Office[], x: number, y: number): Office | null {
   return offices.find((o) => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h) ?? null;
+}
+
+/** Recinto de entrada (lobby) donde aparecen los personajes al entrar. */
+export function lobbyOf(offices: Office[]): Office | null {
+  return offices.find((o) => o.kind === 'lobby') ?? null;
 }
 
 /**

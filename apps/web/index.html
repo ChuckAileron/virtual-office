@@ -4,9 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Oficina Virtual</title>
+  <style>
+    #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #1d2233; color: #e8ebf5; font-family: system-ui, "Segoe UI", sans-serif; }
+    #boot .logo { font-size: 40px; }
+    #boot .ring { width: 42px; height: 42px; border: 4px solid #44507a; border-top-color: #4f8cff; border-radius: 50%; animation: bootspin 0.9s linear infinite; }
+    #boot p { margin: 0; color: #9fb0e0; font-size: 14px; }
+    @keyframes bootspin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div id="boot">
+      <span class="logo">🏢</span>
+      <span class="ring"></span>
+      <p>Cargando Oficina Virtual…</p>
+    </div>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

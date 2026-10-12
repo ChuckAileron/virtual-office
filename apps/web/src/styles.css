@@ -2,6 +2,11 @@
 body { margin: 0; font-family: system-ui, Segoe UI, sans-serif; background: #1d2233; color: #e8ebf5; }
 [hidden] { display: none !important; }
 #lobby { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+#loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+#loader .loaderLogo { font-size: 40px; }
+#loader .spinner { width: 42px; height: 42px; border: 4px solid #44507a; border-top-color: #4f8cff; border-radius: 50%; animation: spin 0.9s linear infinite; }
+#loader .loaderText { margin: 0; color: #9fb0e0; font-size: 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 h1 { text-align: center; }
 h2 { margin-top: 0; font-size: 18px; }
 .card { background: #2a3048; border-radius: 12px; padding: 16px; margin-bottom: 16px; }

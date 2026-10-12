@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import { LayoutOptions, PublicRoom, formatCode, generateLayout, normalizeCode, rebuildBlocked } from '@vo/shared';
+import { LAYOUT_VERSION, LayoutOptions, PublicRoom, T, formatCode, generateLayout, normalizeCode, rebuildBlocked } from '@vo/shared';
 import { Repository, RoomRow } from '../db/repository';
 import { RoomRuntime } from './room.types';
 
@@ -44,12 +44,20 @@ export class RoomsService implements OnModuleInit {
   }
 
   private async toRuntime(row: RoomRow): Promise<RoomRuntime> {
+    // Migración: regenera los espacios creados con un trazado anterior (sin entrada o con el
+    // diseño antiguo de entrada), conservando sus opciones. El resto no cambia.
+    let { size, tiles, offices } = row;
+    if (size.version !== LAYOUT_VERSION || !tiles.some((r) => r.includes(T.LOBBY))) {
+      const layout = generateLayout({ offices: size.offices, conference: size.conference, boss: size.boss });
+      ({ size, tiles, offices } = layout);
+      await this.repo.updateRoomLayout(row.code, layout);
+    }
     const room: RoomRuntime = {
       code: row.code,
       name: row.name,
-      size: row.size,
-      tiles: row.tiles,
-      offices: row.offices,
+      size,
+      tiles,
+      offices,
       objects: await this.repo.loadObjects(row.code),
       pets: await this.repo.loadPets(row.code),
       floorDecorations: await this.repo.loadFloorDecorations(row.code),

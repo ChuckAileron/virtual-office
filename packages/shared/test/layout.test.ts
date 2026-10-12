@@ -22,6 +22,37 @@ describe('layout', () => {
     );
   });
 
+  it('incluye siempre una entrada (lobby) al fondo, bajo el recinto', () => {
+    for (const offices of [1, 6, 30]) {
+      const l = generateLayout({ offices });
+      const lobbies = l.offices.filter((o) => o.kind === 'lobby');
+      expect(lobbies).toHaveLength(1);
+      expect(lobbies[0].name).toBe('Entrada');
+      expect(l.size.offices).toBe(offices); // la entrada no cuenta como oficina
+      expect(countTiles(l.tiles, T.LOBBY)).toBeGreaterThan(0);
+      // La entrada ocupa todo el ancho al fondo del piso.
+      expect(lobbies[0].x).toBe(1);
+      expect(lobbies[0].w).toBe(l.size.width - 2);
+      expect(lobbies[0].y + lobbies[0].h).toBe(l.size.height - 1);
+      // El borde que contiene el espacio de trabajo queda por encima de la entrada.
+      const gridBottom = Math.max(...l.offices.filter((o) => o.kind !== 'lobby').map((o) => o.y + o.h));
+      expect(lobbies[0].y).toBeGreaterThanOrEqual(gridBottom);
+    }
+  });
+
+  it('conecta la entrada con el espacio de trabajo mediante una puerta', () => {
+    for (const offices of [1, 8]) {
+      const l = generateLayout({ offices, boss: true });
+      const lobby = l.offices.find((o) => o.kind === 'lobby')!;
+      const doorX = lobby.x + Math.floor(lobby.w / 2);
+      const divider = lobby.y - 1; // pared inferior del recinto del espacio de trabajo
+      expect(l.tiles[divider][doorX]).toBe(T.DOOR);
+      expect(isWalkable(l.tiles, doorX, divider)).toBe(true);
+      expect(l.tiles[divider - 1][doorX]).toBe(T.FLOOR); // pasillo del espacio de trabajo
+      expect(l.tiles[divider + 1][doorX]).toBe(T.LOBBY); // ya dentro de la entrada
+    }
+  });
+
   it('no genera plantas automáticas', () => {
     const l = generateLayout({ offices: 6, boss: true });
     expect(l.tiles.flat().every((t) => Object.values(T).includes(t as never))).toBe(true);
@@ -46,7 +77,9 @@ describe('layout', () => {
 
     for (const o of l.offices) {
       expect(o.x >= 1 && o.y >= 1 && o.x + o.w <= W - 1 && o.y + o.h <= H - 1).toBe(true);
-      expect(l.tiles[o.y + o.h - 1][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
+      // Las oficinas tienen puerta en su pared inferior; la entrada la tiene en su pared superior.
+      const doorY = o.kind === 'lobby' ? o.y - 1 : o.y + o.h - 1;
+      expect(l.tiles[doorY][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
     }
     for (let i = 0; i < l.offices.length; i++) {
       for (let j = i + 1; j < l.offices.length; j++) {
