@@ -1,4 +1,4 @@
-import type { Appearance, Dir } from '@vo/shared';
+import { BALD_STYLE, type Appearance, type Dir } from '@vo/shared';
 import { accessoriesKey, drawAccessories, type Painter } from './accessories';
 
 export const SPRITE_W = 16;
@@ -14,6 +14,7 @@ export function shade(hex: string, amt: number): string {
 }
 
 function drawHair(r: Painter, h: string, female: boolean, style: number, dir: Dir, hairD: string): void {
+  if (style === BALD_STYLE) return;
   if (dir === 'down') {
     if (style === 1 && !female) {
       r(h, 4, 2, 8, 2);

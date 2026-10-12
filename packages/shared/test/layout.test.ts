@@ -10,7 +10,7 @@ describe('layout', () => {
     expect(s.boss).toBe(false);
   });
 
-  it('el jefe y la sala de reuniones agrandan el piso', () => {
+  it('el jefe y la sala de reuniones agrandan el espacio de trabajo', () => {
     const base = computeFloorSize({ offices: 6 });
     expect(computeFloorSize({ offices: 6, conference: true }).height).toBeGreaterThan(base.height);
     expect(computeFloorSize({ offices: 6, boss: true }).height).toBeGreaterThan(base.height);
@@ -31,7 +31,7 @@ describe('layout', () => {
   const cases: Array<[number, boolean, boolean]> = [];
   for (const n of [1, 2, 3, 5, 6, 7, 12, 25, 60]) for (const c of [false, true]) for (const b of [false, true]) cases.push([n, c, b]);
 
-  it.each(cases)('piso válido (oficinas=%i, sala=%s, jefe=%s)', (n, conference, boss) => {
+  it.each(cases)('espacio de trabajo válido (oficinas=%i, sala=%s, jefe=%s)', (n, conference, boss) => {
     const l = generateLayout({ offices: n, conference, boss });
     const { width: W, height: H } = l.size;
     expect(l.tiles).toHaveLength(H);
@@ -67,7 +67,7 @@ describe('layout', () => {
       if (n > 1) expect(normal.some((o) => o.y < b.y) && normal.some((o) => o.y > b.y)).toBe(true);
     }
 
-    // Todo el piso transitable es alcanzable desde el pasillo
+    // Todo el espacio de trabajo transitable es alcanzable desde el pasillo
     const start = { x: 1, y: 1 };
     expect(isWalkable(l.tiles, start.x, start.y)).toBe(true);
     const seen = new Set([`${start.x},${start.y}`]);

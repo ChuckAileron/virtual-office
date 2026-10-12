@@ -39,6 +39,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - floor_images:/app/data/floor-images
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -67,5 +69,6 @@ services:
 
 volumes:
   pgdata:
+  floor_images:
   caddy_data:
   caddy_config:

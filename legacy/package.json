@@ -1,7 +1,7 @@
 ﻿{
   "name": "virtual-office",
   "version": "1.0.0",
-  "description": "Oficina virtual 2D multijugador al estilo Gather",
+  "description": "Oficina virtual 2D multijugador",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",

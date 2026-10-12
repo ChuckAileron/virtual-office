@@ -1,7 +1,7 @@
 import type { AccessoryCatalog } from './accessories';
 import type { AppearancePatch } from './appearance';
 import type { CatalogEntry } from './objects';
-import type { Accessories, Appearance, Dir, FloorSize, Office, PlacedObject, Pet, Tiles } from './types';
+import type { Accessories, Appearance, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Tiles } from './types';
 
 /** Constantes de juego compartidas. */
 export const GAME = {
@@ -57,6 +57,8 @@ export interface WelcomePayload {
   objects: PlacedObject[];
   catalog: CatalogEntry[];
   pets: Pet[];
+  floorDecorations: FloorDecoration[];
+  floorStyles: OfficeFloorStyle[];
   petKinds: Array<{ type: string; name: string }>;
   petColors: Array<{ id: string; name: string; hex: string }>;
   accessories: AccessoryCatalog;
@@ -78,10 +80,13 @@ export interface ClientToServerEvents {
   remove_object: (p: { id: number }) => void;
   place_pet: (p: { kind: string; color: string; x: number; y: number }) => void;
   remove_pet: (p: { id: number }) => void;
+  place_floor_decoration: (p: Omit<FloorDecoration, 'id'>) => void;
+  remove_floor_decoration: (p: { id: number }) => void;
+  set_office_floor_style: (p: OfficeFloorStyle) => void;
   set_look: (p: { acc?: Partial<Accessories>; look?: AppearancePatch }) => void;
   /** Indicador de micrófono activo (solo informativo para la lista de jugadores). */
   voice: (p: { on: boolean }) => void;
-  /** Pide un token de LiveKit para el piso actual. */
+  /** Pide un token de LiveKit para el espacio de trabajo actual. */
   voice_token: (ack: (r: VoiceTokenResult) => void) => void;
 }
 
@@ -98,6 +103,9 @@ export interface ServerToClientEvents {
   pet_add: (p: { pet: Pet }) => void;
   pet_remove: (p: { id: number }) => void;
   pet_move: (p: { id: number; x: number; y: number; dir: Dir }) => void;
+  floor_decoration_add: (p: { decoration: FloorDecoration }) => void;
+  floor_decoration_remove: (p: { id: number }) => void;
+  office_floor_style: (p: { style: OfficeFloorStyle }) => void;
   chat: (p: { id: string; name: string; text: string }) => void;
   build_error: (p: { error: string }) => void;
   error: (p: { error: string }) => void;

@@ -1,5 +1,5 @@
 import type { Accessories, CatalogEntry } from '@vo/shared';
-import { canPlaceObject, canPlacePet, objectAt, petAt } from './placement';
+import { canPlaceFloorDecoration, canPlaceObject, canPlacePet, floorDecorationAt, objectAt, petAt } from './placement';
 import type { GameState } from './state';
 
 export const DEFAULT_MSG = 'Elige un objeto y haz clic en el piso. Clic derecho o Esc para cancelar.';
@@ -8,6 +8,7 @@ export type BuildTab = 'office' | 'char';
 export interface BuildView {
   open: boolean;
   selected: CatalogEntry | null;
+  selectedFloorDecoration: { imageUrl: string; w: number; h: number } | null;
   petKind: string | null;
   petColor: string;
   removing: boolean;
@@ -17,6 +18,8 @@ export interface BuildView {
 export interface BuildActions {
   place(kind: string, x: number, y: number): void;
   removeObject(id: number): void;
+  placeFloorDecoration(imageUrl: string, x: number, y: number, w: number, h: number): void;
+  removeFloorDecoration(id: number): void;
   placePet(kind: string, color: string, x: number, y: number): void;
   removePet(id: number): void;
   setLook(acc: Partial<Accessories>): void;
@@ -26,6 +29,7 @@ export class BuildController implements BuildView {
   open = false;
   tab: BuildTab = 'office';
   selected: CatalogEntry | null = null;
+  selectedFloorDecoration: { imageUrl: string; w: number; h: number } | null = null;
   petKind: string | null = null;
   petColor = '';
   removing = false;
@@ -65,6 +69,7 @@ export class BuildController implements BuildView {
 
   private clearSelection(): void {
     this.selected = null;
+    this.selectedFloorDecoration = null;
     this.petKind = null;
     this.removing = false;
   }
@@ -96,6 +101,12 @@ export class BuildController implements BuildView {
     this.setMessage(next ? `${next.name}: haz clic en el piso para colocarlo` : DEFAULT_MSG);
   }
 
+  selectFloorDecoration(imageUrl: string, w: number, h: number): void {
+    this.clearSelection();
+    this.selectedFloorDecoration = { imageUrl, w, h };
+    this.setMessage(`Imagen ${w}×${h} tiles: haz clic dentro de una oficina para colocarla.`);
+  }
+
   selectPet(kind: string | null): void {
     const next = kind && this.petKind === kind ? null : kind;
     this.clearSelection();
@@ -110,7 +121,7 @@ export class BuildController implements BuildView {
     const next = !this.removing;
     this.clearSelection();
     this.removing = next;
-    this.setMessage(next ? 'Haz clic sobre un objeto o mascota para quitarlo' : DEFAULT_MSG);
+    this.setMessage(next ? 'Haz clic sobre un objeto, mascota o imagen de piso para quitarlo' : DEFAULT_MSG);
   }
 
   setHover(tile: { x: number; y: number } | null): void { this.hover = tile; }
@@ -124,8 +135,15 @@ export class BuildController implements BuildView {
       if (pet) { this.actions.removePet(pet.id); return; }
       const o = objectAt(s, x, y);
       if (o) this.actions.removeObject(o.id);
+      else {
+        const decoration = floorDecorationAt(s, x, y);
+        if (decoration) this.actions.removeFloorDecoration(decoration.id);
+      }
     } else if (this.petKind) {
       this.actions.placePet(this.petKind, this.petColor, x, y);
+    } else if (this.selectedFloorDecoration) {
+      const d = this.selectedFloorDecoration;
+      this.actions.placeFloorDecoration(d.imageUrl, x, y, d.w, d.h);
     } else if (this.selected) {
       this.actions.place(this.selected.type, x, y);
     }
@@ -139,7 +157,7 @@ export class BuildController implements BuildView {
   /** Esc: cancela la selección o cierra el panel. Devuelve true si lo consumió. */
   escape(): boolean {
     if (!this.open) return false;
-    if (this.selected || this.removing || this.petKind) this.selectObject(null); else this.close();
+    if (this.selected || this.selectedFloorDecoration || this.removing || this.petKind) this.selectObject(null); else this.close();
     return true;
   }
 
@@ -147,6 +165,9 @@ export class BuildController implements BuildView {
     const s = this.getState();
     if (!s || !this.hover) return false;
     if (this.petKind) return canPlacePet(s, this.hover.x, this.hover.y);
+    if (this.selectedFloorDecoration) {
+      return canPlaceFloorDecoration(s, this.selectedFloorDecoration.w, this.selectedFloorDecoration.h, this.hover.x, this.hover.y);
+    }
     if (this.selected) return canPlaceObject(s, this.selected, this.hover.x, this.hover.y);
     return false;
   }

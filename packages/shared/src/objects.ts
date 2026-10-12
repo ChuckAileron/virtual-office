@@ -1,5 +1,5 @@
-import { isWalkable } from './layout';
-import { PlacedObject, RoomState, T, Tiles } from './types';
+import { isWalkable, officeAt } from './layout';
+import { Office, PlacedObject, RoomState, T, Tiles } from './types';
 
 interface ObjectDef {
   name: string;
@@ -8,6 +8,8 @@ interface ObjectDef {
   solid: boolean;
   /** 'floor': se dibuja bajo el resto y puede coexistir con otros objetos (alfombra) */
   layer?: 'floor';
+  /** Restringe el objeto a un tipo de recinto concreto. */
+  roomKind?: Office['kind'];
 }
 
 export const CATALOG: Record<string, ObjectDef> = {
@@ -24,6 +26,7 @@ export const CATALOG: Record<string, ObjectDef> = {
   vending: { name: 'Máquina expendedora', w: 1, h: 1, solid: true },
   bin: { name: 'Papelera', w: 1, h: 1, solid: true },
   lamp: { name: 'Lámpara de pie', w: 1, h: 1, solid: true },
+  giant_tv: { name: 'TV gigante', w: 3, h: 2, solid: true, roomKind: 'conference' },
   rug: { name: 'Alfombra', w: 2, h: 2, solid: false, layer: 'floor' },
 };
 
@@ -74,7 +77,7 @@ function reachableCount(tiles: Tiles, blocked: Set<string>, start: { x: number; 
   return seen.size;
 }
 
-// El objeto no puede aislar ninguna zona caminable del piso
+// El objeto no puede aislar ninguna zona caminable del espacio de trabajo
 function keepsFloorConnected(room: RoomState, cells: Array<[number, number]>): boolean {
   const after = new Set(room.blocked);
   cells.forEach(([cx, cy]) => after.add(`${cx},${cy}`));
@@ -93,11 +96,13 @@ export function validatePlacement(room: RoomState, type: unknown, x: unknown, y:
   const def = defOf(type);
   if (!def || !Number.isInteger(x) || !Number.isInteger(y)) return 'Objeto inválido';
   const px = x as number, py = y as number;
-  if (room.objects.length >= MAX_OBJECTS) return 'Se alcanzó el máximo de objetos del piso';
+  if (room.objects.length >= MAX_OBJECTS) return 'Se alcanzó el máximo de objetos del espacio de trabajo';
   const cells = footprint(def, px, py);
   for (const [cx, cy] of cells) {
     const t = room.tiles[cy]?.[cx];
-    if (t === undefined || !PLACEABLE.has(t)) return 'Aquí no se puede colocar (solo sobre el piso libre)';
+    if (t === undefined) return 'Aquí no se puede colocar (solo sobre el piso libre)';
+    if (def.roomKind && officeAt(room.offices ?? [], cx, cy)?.kind !== def.roomKind) return 'Este objeto solo se puede colocar en la sala de reuniones';
+    if (!PLACEABLE.has(t)) return 'Aquí no se puede colocar (solo sobre el piso libre)';
     if (nearDoor(room.tiles, cx, cy)) return 'No bloquees las puertas';
     if (room.tiles[cy - 1]?.[cx] === T.DESK) return 'Deja libre el frente del escritorio';
     if (t === T.BOSS && room.tiles[cy + 1]?.[cx] === T.DESK) return 'Deja libre la silla del jefe';

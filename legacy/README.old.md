@@ -1,6 +1,6 @@
 # Virtual Office
 
-Oficina virtual 2D multijugador al estilo [Gather](https://www.gather.town/es/), hecha con Node.js. Los sprites se generan por código, sin imágenes externas.
+Oficina virtual 2D multijugador hecha con Node.js. Los sprites se generan por código, sin imágenes externas.
 
 ## Características
 

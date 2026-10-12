@@ -1,4 +1,4 @@
-import { T, footprint, type CatalogEntry, type PlacedObject } from '@vo/shared';
+import { T, floorDecorationFitsOffice, footprint, officeAt, type CatalogEntry, type PlacedObject } from '@vo/shared';
 import type { GameState } from './state';
 
 const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF]);
@@ -15,6 +15,7 @@ export function canPlaceObject(s: Placement, def: CatalogEntry, x: number, y: nu
   for (const [cx, cy] of mine) {
     const t = tiles[cy]?.[cx];
     if (t === undefined || !PLACEABLE.has(t)) return false;
+    if (def.roomKind && officeAt(s.room.offices, cx, cy)?.kind !== def.roomKind) return false;
     if (ORTHO.some(([dx, dy]) => tiles[cy + dy]?.[cx + dx] === T.DOOR)) return false;
     if (tiles[cy - 1]?.[cx] === T.DESK) return false;
     if (t === T.BOSS && tiles[cy + 1]?.[cx] === T.DESK) return false;
@@ -28,6 +29,14 @@ export function canPlaceObject(s: Placement, def: CatalogEntry, x: number, y: nu
     for (const p of s.pets.values()) if (has(p.x, p.y)) return false;
   }
   return true;
+}
+
+export function canPlaceFloorDecoration(s: Pick<GameState, 'room'>, w: number, h: number, x: number, y: number): boolean {
+  return floorDecorationFitsOffice(s.room.offices, x, y, w, h);
+}
+
+export function floorDecorationAt(s: Pick<GameState, 'floorDecorations'>, x: number, y: number) {
+  return [...s.floorDecorations].reverse().find((d) => x >= d.x && x < d.x + d.w && y >= d.y && y < d.y + d.h) ?? null;
 }
 
 export const petAt = (s: Pick<GameState, 'pets'>, x: number, y: number) =>

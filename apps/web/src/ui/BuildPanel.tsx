@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TILE } from '../game/constants';
 import { objectSprite } from '../game/objects';
 import { petSprite } from '../game/pets';
 import { SPRITE_W, getSprite } from '../game/sprites';
 import { HAIRS, PANTS, SHIRTS, SKINS, STYLE_COUNT } from '../game/appearance';
 import type { GameSession } from '../game/session';
-import type { Accessories, Appearance, CatalogEntry } from '@vo/shared';
+import { MAX_FLOOR_DECORATION_DIMENSION, officeAt, styleAllowed, type Accessories, type Appearance, type CatalogEntry } from '@vo/shared';
 
 function Icon({ draw, width, height }: { draw(ctx: CanvasRenderingContext2D): void; width: number; height: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -61,9 +61,19 @@ function StyleIcon({ appearance, style }: { appearance: Appearance; style: numbe
 }
 
 export function BuildPanel({ session }: { session: GameSession }) {
+  const [floorImageUrl, setFloorImageUrl] = useState('');
+  const [floorImageWidth, setFloorImageWidth] = useState('7');
+  const [floorImageHeight, setFloorImageHeight] = useState('5');
+  const [floorImageUploading, setFloorImageUploading] = useState(false);
+  const [floorImageError, setFloorImageError] = useState('');
   const { build, state } = session;
   if (!state || !build.open) return null;
   const me = session.me();
+  const currentOffice = me ? officeAt(state.room.offices, me.x, me.y) : null;
+  const floorStyle = currentOffice && state.floorStyles.find((style) => style.officeId === currentOffice.id);
+  const floorPattern = floorStyle?.pattern ?? 'checker';
+  const defaultFloorColor = currentOffice?.kind === 'boss' ? '#7a4a52' : currentOffice?.kind === 'conference' ? '#a9b8a2' : '#b9a27c';
+  const floorColor = floorStyle?.color ?? defaultFloorColor;
   const colors = state.accessories.colors;
   const acc: Accessories = { hat: null, glasses: null, extra: null, hatColor: colors[0], extraColor: colors[0], ...me?.appearance.acc };
 
@@ -106,6 +116,32 @@ export function BuildPanel({ session }: { session: GameSession }) {
     </div>
   );
 
+  const uploadFloorImage = async (file: File | undefined): Promise<void> => {
+    if (!file) return;
+    setFloorImageError('');
+    setFloorImageUploading(true);
+    try {
+      const uploaded = await session.uploadFloorImage(file);
+      setFloorImageUrl(uploaded.imageUrl);
+    } catch (error) {
+      setFloorImageError(error instanceof Error ? error.message : 'No se pudo subir la imagen');
+    } finally {
+      setFloorImageUploading(false);
+    }
+  };
+
+  const selectFloorImage = (): void => {
+    const w = Number(floorImageWidth), h = Number(floorImageHeight);
+    if (!floorImageUrl) { setFloorImageError('Primero sube una imagen PNG o JPEG'); return; }
+    if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1
+      || w > MAX_FLOOR_DECORATION_DIMENSION || h > MAX_FLOOR_DECORATION_DIMENSION) {
+      setFloorImageError(`El ancho y alto deben ser tiles enteros entre 1 y ${MAX_FLOOR_DECORATION_DIMENSION}`);
+      return;
+    }
+    setFloorImageError('');
+    build.selectFloorDecoration(floorImageUrl, w, h);
+  };
+
   return (
     <div id="buildPanel">
       <div className="bp-head">
@@ -119,6 +155,17 @@ export function BuildPanel({ session }: { session: GameSession }) {
 
       {build.tab === 'office' ? (
         <div id="officeTab">
+          {currentOffice && (
+            <div id="officeFloorSection">
+              <strong>🎨 Piso: {currentOffice.name}</strong>
+              <label className="officeFloorColor">Color del piso<input type="color" value={floorColor} onChange={(e) => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: e.currentTarget.value, pattern: floorPattern })} /></label>
+              <div className="officeFloorPatterns">
+                <button type="button" className={floorPattern === 'solid' ? 'on' : ''} onClick={() => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: floorColor, pattern: 'solid' })}>Sólido</button>
+                <button type="button" className={floorPattern === 'checker' ? 'on' : ''} onClick={() => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: floorColor, pattern: 'checker' })}>Ajedrez</button>
+              </div>
+              <small>El patrón ajedrez usa una variante más oscura del color.</small>
+            </div>
+          )}
           <div id="buildItems">
             {state.catalog.map((def) => (
               <button key={def.type} type="button" title={def.name} className={build.selected?.type === def.type ? 'on' : ''} onClick={() => build.selectObject(def)}>
@@ -126,6 +173,23 @@ export function BuildPanel({ session }: { session: GameSession }) {
                 <span>{def.name}</span>
               </button>
             ))}
+          </div>
+          <div id="floorImageSection">
+            <strong>🖼 Imagen de piso</strong>
+            <label className="floorImageFile">Subir imagen (PNG/JPEG)
+              <input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" disabled={floorImageUploading} onChange={(e) => void uploadFloorImage(e.currentTarget.files?.[0])} />
+            </label>
+            {floorImageUploading && <small>Subiendo imagen…</small>}
+            {floorImageUrl && <img className="floorImagePreview" src={floorImageUrl} alt="Vista previa de la imagen de piso" />}
+            <div className="floorImageSize">
+              <label>Ancho (tiles)<input type="number" min={1} max={MAX_FLOOR_DECORATION_DIMENSION} value={floorImageWidth} onChange={(e) => setFloorImageWidth(e.target.value)} /></label>
+              <label>Alto (tiles)<input type="number" min={1} max={MAX_FLOOR_DECORATION_DIMENSION} value={floorImageHeight} onChange={(e) => setFloorImageHeight(e.target.value)} /></label>
+            </div>
+            <button type="button" disabled={!floorImageUrl || floorImageUploading} className={build.selectedFloorDecoration?.imageUrl === floorImageUrl ? 'on' : ''} onClick={selectFloorImage}>
+              Usar tamaño y colocar
+            </button>
+            <small>Luego haz clic dentro de una oficina. La imagen quedará bajo muebles y decoraciones.</small>
+            {floorImageError && <small className="err">{floorImageError}</small>}
           </div>
           <div id="petSection">
             <strong>🐾 Mascotas</strong>
@@ -154,11 +218,13 @@ export function BuildPanel({ session }: { session: GameSession }) {
           <div className="accSection">
             <strong>💇 Peinado</strong>
             <div className="accGrid">
-              {Array.from({ length: STYLE_COUNT }, (_, s) => (
-                <button key={s} type="button" title={`Peinado ${s + 1}`} className={look?.style === s ? 'on' : ''} onClick={() => session.sendAppearance({ style: s })}>
-                  {me && <StyleIcon appearance={me.appearance} style={s} />}
-                </button>
-              ))}
+              {Array.from({ length: STYLE_COUNT }, (_, s) => s)
+                .filter((s) => styleAllowed(me?.appearance.gender ?? 'male', s))
+                .map((s) => (
+                  <button key={s} type="button" title={`Peinado ${s + 1}`} className={look?.style === s ? 'on' : ''} onClick={() => session.sendAppearance({ style: s })}>
+                    {me && <StyleIcon appearance={me.appearance} style={s} />}
+                  </button>
+                ))}
             </div>
           </div>
           <div className="accSection">

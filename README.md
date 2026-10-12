@@ -1,6 +1,6 @@
 # Virtual Office
 
-Oficina virtual 2D multijugador al estilo [Gather](https://www.gather.town/es/), pensada para funcionar **dentro de una red local (LAN)**, sin IP pública ni túneles externos.
+Oficina virtual 2D multijugador pensada para funcionar **dentro de una red local (LAN)**, sin IP pública ni túneles externos.
 
 | Capa | Tecnología |
 |------|-----------|
@@ -12,7 +12,7 @@ Oficina virtual 2D multijugador al estilo [Gather](https://www.gather.town/es/),
 
 ## Características
 
-- **Pisos por código de invitación**; el tamaño del piso depende de las oficinas, sala de reuniones y oficina del jefe.
+- **Espacios de trabajo por código de invitación**; el tamaño del espacio de trabajo depende de las oficinas, sala de reuniones y oficina del jefe.
 - **Cuentas de usuario** (JWT) con personaje guardado y generador aleatorio.
 - **Voz y video por proximidad**: solo oyes a quien está en tu oficina o cerca. Incluye cámara y pantalla compartida.
 - **Estado activo/inactivo** tras 5 minutos sin actividad.
@@ -102,9 +102,9 @@ npm run build
 
 ## Tutorial: cómo usar la aplicación
 
-1. **Crea tu cuenta**: elige usuario y contraseña y personaliza el personaje (o usa *Aleatorio*).
-2. **Crea un piso** indicando nombre, número de oficinas, y si tendrá sala de reuniones y oficina del jefe. Se genera un **código de invitación** (por ejemplo `AB3D-7KMN`).
-3. **Comparte la dirección** `https://<IP>` y el código con tu equipo. Ellos inician sesión y escriben el código en *Unirse a un piso*.
+1. **Inicia sesión o crea tu cuenta** al abrir la app; al crear la cuenta eliges usuario, contraseña y personalizas el personaje (o usas *Aleatorio*).
+2. **Crea un espacio de trabajo** indicando nombre, número de oficinas, y si tendrá sala de reuniones y oficina del jefe. Se genera un **código de invitación** (por ejemplo `AB3D-7KMN`).
+3. **Comparte la dirección** `https://<IP>` y el código con tu equipo. Ellos inician sesión y escriben el código en *Unirse con código de invitación*.
 4. **Muévete** con `WASD` o las flechas.
 5. **Voz y video**: activa micrófono/cámara desde la barra inferior. Solo escuchas y ves a quienes están en tu misma oficina o cerca. Puedes compartir pantalla.
 6. **Chat**: escribe un mensaje; lo ven quienes estén cerca o en tu oficina.
@@ -122,5 +122,5 @@ npm run build
 
 - Contraseñas con scrypt, sesiones JWT, límite de intentos de inicio de sesión y cuerpos JSON limitados.
 - Los secretos se generan aleatoriamente en `.env` (no lo subas a un repositorio).
-- La proximidad de voz la decide el servidor (evento `audible`), pero el cliente es quien se suscribe a las pistas: un cliente modificado podría suscribirse a más participantes de su piso. Es aceptable en una LAN de confianza; para endurecerlo habría que gestionar las suscripciones desde el servidor con la API de LiveKit.
+- La proximidad de voz la decide el servidor (evento `audible`), pero el cliente es quien se suscribe a las pistas: un cliente modificado podría suscribirse a más participantes de su espacio de trabajo. Es aceptable en una LAN de confianza; para endurecerlo habría que gestionar las suscripciones desde el servidor con la API de LiveKit.
 - Esta versión reemplaza la anterior en SQLite (carpeta `legacy/`); los datos antiguos no se migran automáticamente.

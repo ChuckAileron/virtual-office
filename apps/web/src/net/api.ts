@@ -55,4 +55,20 @@ export const getRoom = (code: string) => request<PublicRoom>(`/api/rooms/${encod
 export const createRoom = (name: string, o: FloorOptions, token: string) =>
   request<PublicRoom>('/api/rooms', { method: 'POST', body: { name, offices: Number(o.offices), conference: o.conference, boss: o.boss }, token });
 
+export async function uploadFloorImage(file: File, token: string): Promise<{ imageUrl: string }> {
+  const form = new FormData();
+  form.append('image', file);
+  let res: Response;
+  try {
+    res = await fetch('/api/floor-images', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  } catch {
+    throw new ApiRequestError('No se pudo conectar con el servidor', 0);
+  }
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiRequestError(errorMessage(data), res.status);
+  const imageUrl = (data as { imageUrl?: unknown } | null)?.imageUrl;
+  if (typeof imageUrl !== 'string') throw new ApiRequestError('El servidor no devolvió la imagen', res.status);
+  return { imageUrl };
+}
+
 export const getConfig = () => request<ClientConfig>('/api/config');

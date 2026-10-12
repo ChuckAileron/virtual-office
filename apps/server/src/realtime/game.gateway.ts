@@ -1,9 +1,12 @@
 import { randomBytes } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Inject, OnModuleDestroy } from '@nestjs/common';
 import { OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
 import type { Server } from 'socket.io';
 import {
-  ACCESSORY_CATALOG, CATALOG_LIST, DIRS, GAME, PET_COLORS, PET_KINDS, T, formatCode, isWalkable, officeAt,
+  ACCESSORY_CATALOG, CATALOG_LIST, DIRS, FLOOR_IMAGE_URL_PATTERN, GAME, MAX_FLOOR_DECORATIONS,
+  PET_COLORS, PET_KINDS, T, floorDecorationFitsOffice, formatCode, isWalkable, officeAt, styleAllowed,
   sanitizeAccessories, sanitizeAppearancePatch, stepPet, validatePet, validatePlacement, rebuildBlocked,
   type ClientToServerEvents, type PlayerView, type ServerToClientEvents,
 } from '@vo/shared';
@@ -17,6 +20,7 @@ import { VoiceService } from './voice.service';
 
 const EDIT_THROTTLE_MS = 120;
 const LOOK_THROTTLE_MS = 100;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 const cleanText = (s: unknown, max: number) =>
   String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
@@ -72,7 +76,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
         previous.socket.disconnect(true);
       }
       const spawn = this.spawnPoint(room);
-      if (!spawn) return void socket.emit('error', { error: 'No hay espacio libre en el piso' });
+      if (!spawn) return void socket.emit('error', { error: 'No hay espacio libre en el espacio de trabajo' });
       const now = Date.now();
       player = {
         id: randomBytes(4).toString('hex'), userId: user.id, socket, room, name: user.username,
@@ -87,6 +91,8 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
         objects: room.objects,
         catalog: CATALOG_LIST,
         pets: room.pets,
+        floorDecorations: room.floorDecorations,
+        floorStyles: room.floorStyles,
         petKinds: PET_KINDS.map((k) => ({ ...k })),
         petColors: PET_COLORS.map((c) => ({ ...c })),
         accessories: ACCESSORY_CATALOG,
@@ -97,7 +103,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       this.pushAudible(room, player);
     });
 
-    // Cada manejador exige haber entrado a un piso.
+    // Cada manejador exige haber entrado a un espacio de trabajo.
     const guard = <A extends unknown[]>(fn: (p: Player, room: RoomRuntime, ...args: A) => void) =>
       (...args: A) => {
         if (!player?.room) return;
@@ -170,15 +176,59 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       this.server.to(this.channel(room)).emit('pet_remove', { id: removed.id });
     }));
 
+    socket.on('place_floor_decoration', guard(async (p, room, data) => {
+      if (!this.editAllowed(p)) return;
+      if (room.floorDecorations.length >= MAX_FLOOR_DECORATIONS) {
+        return void socket.emit('build_error', { error: 'Se alcanzó el máximo de imágenes de piso' });
+      }
+      if (!FLOOR_IMAGE_URL_PATTERN.test(data?.imageUrl ?? '')
+        || !fs.existsSync(path.join(this.config.uploadsDir, path.basename(data.imageUrl)))) {
+        return void socket.emit('build_error', { error: 'La imagen seleccionada ya no está disponible' });
+      }
+      if (!floorDecorationFitsOffice(room.offices, data?.x, data?.y, data?.w, data?.h)) {
+        return void socket.emit('build_error', { error: 'La imagen debe quedar dentro de una oficina; revisa su tamaño en tiles' });
+      }
+      const decoration = await this.repo.addFloorDecoration(room.code, data.imageUrl, data.x, data.y, data.w, data.h);
+      room.floorDecorations.push(decoration);
+      this.server.to(this.channel(room)).emit('floor_decoration_add', { decoration });
+    }));
+
+    socket.on('remove_floor_decoration', guard(async (p, room, data) => {
+      if (!this.editAllowed(p)) return;
+      const idx = room.floorDecorations.findIndex((d) => d.id === data?.id);
+      if (idx < 0) return void socket.emit('build_error', { error: 'Esa imagen ya no existe' });
+      const [removed] = room.floorDecorations.splice(idx, 1);
+      await this.repo.removeFloorDecoration(room.code, removed.id);
+      this.server.to(this.channel(room)).emit('floor_decoration_remove', { id: removed.id });
+    }));
+
+    socket.on('set_office_floor_style', guard(async (p, room, data) => {
+      if (!this.editAllowed(p)) return;
+      const office = officeAt(room.offices, p.x, p.y);
+      if (!office) return void socket.emit('build_error', { error: 'Debes estar dentro de una oficina para decorar su piso' });
+      if (data?.officeId !== office.id || (data.pattern !== 'solid' && data.pattern !== 'checker')
+        || typeof data.color !== 'string' || !HEX_COLOR.test(data.color)) {
+        return void socket.emit('build_error', { error: 'Estilo de piso inválido' });
+      }
+      const style = { officeId: office.id, color: data.color.toLowerCase(), pattern: data.pattern };
+      await this.repo.saveOfficeFloorStyle(room.code, style);
+      const index = room.floorStyles.findIndex((entry) => entry.officeId === office.id);
+      if (index < 0) room.floorStyles.push(style);
+      else room.floorStyles[index] = style;
+      this.server.to(this.channel(room)).emit('office_floor_style', { style });
+    }));
+
     socket.on('set_look', guard(async (p, room, data) => {
       const now = Date.now();
       if (now - p.lastLook < LOOK_THROTTLE_MS) return;
       p.lastLook = now;
-      p.appearance = {
+      const next = {
         ...p.appearance,
         ...sanitizeAppearancePatch(data?.look),
         acc: data?.acc ? sanitizeAccessories(data.acc) : p.appearance.acc,
       };
+      if (!styleAllowed(next.gender, next.style)) next.style = p.appearance.style;
+      p.appearance = next;
       await this.repo.updateAppearance(p.userId, p.appearance);
       this.server.to(this.channel(room)).emit('look', { id: p.id, appearance: p.appearance });
     }));
@@ -190,7 +240,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
 
     socket.on('voice_token', async (ack) => {
       if (typeof ack !== 'function') return;
-      if (!player?.room) return ack({ ok: false, error: 'Entra a un piso primero' });
+      if (!player?.room) return ack({ ok: false, error: 'Entra a un espacio de trabajo primero' });
       try {
         ack(await this.voice.createToken(player.room.code, player.id, player.name));
       } catch {

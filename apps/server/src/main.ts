@@ -22,6 +22,8 @@ export function configureApp(app: NestExpressApplication, config: AppConfig): vo
   if (config.trustProxy) app.set('trust proxy', true);
   app.disable('x-powered-by');
 
+  app.useStaticAssets(config.uploadsDir, { prefix: '/api/floor-images' });
+
   const index = path.join(config.webDist, 'index.html');
   if (fs.existsSync(index)) {
     app.useStaticAssets(config.webDist);

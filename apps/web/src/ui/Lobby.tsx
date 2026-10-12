@@ -20,7 +20,7 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
   const [rooms, setRooms] = useState(loadRooms);
   const [error, setError] = useState(notice);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [name, setName] = useState('Piso 1');
+  const [name, setName] = useState('Espacio 1');
   const [offices, setOffices] = useState('6');
   const [conference, setConference] = useState(false);
   const [boss, setBoss] = useState(false);
@@ -38,7 +38,7 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
   const fail = (e: unknown): void => setError(e instanceof Error ? e.message : 'Error inesperado');
 
   const remember = (room: PublicRoom): void => {
-    // Persistir antes de entrar al piso (que desmonta Lobby). No hacer I/O
+    // Persistir antes de entrar al espacio de trabajo (que desmonta Lobby). No hacer I/O
     // dentro de un updater funcional: React puede diferirlo o descartarlo.
     const next = upsertRoom(rooms, { code: room.code, name: room.name });
     setRooms(next);
@@ -90,7 +90,7 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
   const onCreateSubmit = (e: FormEvent): void => {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed) { setError('El nombre del piso es obligatorio'); return; }
+    if (!trimmed) { setError('El nombre del espacio de trabajo es obligatorio'); return; }
     start({ kind: 'create', name: trimmed, options: { offices, conference, boss } });
   };
 
@@ -102,7 +102,18 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
     if (p) await run(p, res.token);
   };
 
-  const authTitle = pending?.kind === 'join' ? `Entrar a «${pending.room.name}»` : 'Inicia sesión para crear el piso';
+  const authTitle = pending?.kind === 'join' ? `Entrar a «${pending.room.name}»` : 'Inicia sesión para crear el espacio de trabajo';
+
+  // Primer paso obligatorio: autenticarse antes de crear o unirse.
+  if (!session && !pending) {
+    return (
+      <main id="lobby">
+        <h1>🏢 Oficina Virtual</h1>
+        <AuthCard title="Inicia sesión para continuar" initialUsername="" onAuthenticated={onAuthenticated} onError={setError} />
+        <p id="lobbyError" className="error">{error}</p>
+      </main>
+    );
+  }
 
   return (
     <main id="lobby">
@@ -115,18 +126,18 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
         </p>
       )}
 
-      {!pending && (
+      {session && !pending && (
         <div id="mainCards">
           <section className="card">
-            <h2>1. Crear un piso</h2>
+            <h2>1. Crear un espacio de trabajo</h2>
             <form id="createForm" noValidate onSubmit={onCreateSubmit}>
-              <label>Nombre del piso <input name="name" maxLength={32} value={name} onChange={(e) => setName(e.target.value)} required /></label>
+              <label>Nombre del espacio de trabajo <input name="name" maxLength={32} value={name} onChange={(e) => setName(e.target.value)} required /></label>
               <div className="row">
                 <label>Cantidad de oficinas <input name="offices" type="number" min={1} max={60} value={offices} onChange={(e) => setOffices(e.target.value)} required /></label>
               </div>
               <label className="check"><input name="conference" type="checkbox" checked={conference} onChange={(e) => setConference(e.target.checked)} /> Agregar sala de reuniones (arriba, una silla por oficina)</label>
               <label className="check"><input name="boss" type="checkbox" checked={boss} onChange={(e) => setBoss(e.target.checked)} /> Agregar oficina del jefe (al medio, además de las oficinas)</label>
-              <p id="sizeInfo" className="hint">{size ? `Tamaño del piso (automático): ${size.width}×${size.height} tiles.` : ''}</p>
+              <p id="sizeInfo" className="hint">{size ? `Tamaño del espacio de trabajo (automático): ${size.width}×${size.height} tiles.` : ''}</p>
               <button type="submit" className="primary">Crear y entrar</button>
             </form>
           </section>

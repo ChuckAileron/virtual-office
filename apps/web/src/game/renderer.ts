@@ -1,11 +1,11 @@
-import { T, officeAt, type Tiles } from '@vo/shared';
+import { T, officeAt, type FloorDecoration, type Tiles } from '@vo/shared';
 import type { BuildView } from './build';
 import { SPRITE_SCALE, TILE } from './constants';
 import { cameraAxis } from './coords';
 import { objectSprite } from './objects';
 import { drawPet, petSprite } from './pets';
 import { chair, desk, deskBoss } from './props';
-import { SPRITE_H, SPRITE_W, getSprite } from './sprites';
+import { SPRITE_H, SPRITE_W, getSprite, shade } from './sprites';
 import { chatBubble, isMoving, type ClientPlayer, type GameState } from './state';
 
 const FLOORS = {
@@ -16,13 +16,24 @@ const FLOORS = {
 } as const;
 
 export const SPEAKING_LEVEL = 0.08;
+const floorImages = new Map<string, HTMLImageElement>();
+
+function floorImage(url: string): HTMLImageElement {
+  let image = floorImages.get(url);
+  if (!image) {
+    image = new Image();
+    image.src = url;
+    floorImages.set(url, image);
+  }
+  return image;
+}
 
 function roomKindAt(state: GameState, x: number, y: number): keyof typeof FLOORS {
   const o = officeAt(state.room.offices, x, y);
   return o ? o.kind : 'hall';
 }
 
-function drawTile(ctx: CanvasRenderingContext2D, state: GameState, t: number, x: number, y: number, tiles: Tiles): void {
+function drawTileBase(ctx: CanvasRenderingContext2D, state: GameState, t: number, x: number, y: number): void {
   const px = x * TILE, py = y * TILE;
   if (t === T.WALL) {
     ctx.fillStyle = '#4a5270'; ctx.fillRect(px, py, TILE, TILE);
@@ -34,10 +45,21 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, t: number, x:
     ctx.fillStyle = '#d8c9a6'; ctx.fillRect(px, py, TILE, TILE);
     return;
   }
-  const kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.OFFICE ? 'office' : t === T.FLOOR ? 'hall' : roomKindAt(state, x, y);
-  ctx.fillStyle = FLOORS[kind][(x + y) % 2 === 0 ? 0 : 1];
+  const office = officeAt(state.room.offices, x, y);
+  const style = office && state.floorStyles.find((entry) => entry.officeId === office.id);
+  if (style) {
+    const dark = style.pattern === 'checker' && ((x - office!.x + y - office!.y) % 2 === 1);
+    ctx.fillStyle = dark ? shade(style.color, -28) : style.color;
+  } else {
+    const kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.OFFICE ? 'office' : t === T.FLOOR ? 'hall' : roomKindAt(state, x, y);
+    ctx.fillStyle = FLOORS[kind][(x + y) % 2 === 0 ? 0 : 1];
+  }
   ctx.fillRect(px, py, TILE, TILE);
+}
 
+function drawTileDetails(ctx: CanvasRenderingContext2D, state: GameState, t: number, x: number, y: number, tiles: Tiles): void {
+  const px = x * TILE, py = y * TILE;
+  const kind = roomKindAt(state, x, y);
   if (t === T.DESK) {
     // Cada escritorio ocupa 3 tiles que comparten un sprite de 96x32
     let start = x;
@@ -64,6 +86,15 @@ function drawTile(ctx: CanvasRenderingContext2D, state: GameState, t: number, x:
       ctx.drawImage(chair(x), px, py, TILE, TILE);
     }
   }
+}
+
+function drawFloorDecoration(ctx: CanvasRenderingContext2D, decoration: FloorDecoration): void {
+  const image = floorImage(decoration.imageUrl);
+  if (!image.complete || !image.naturalWidth) return;
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(image, decoration.x * TILE, decoration.y * TILE, decoration.w * TILE, decoration.h * TILE);
+  ctx.restore();
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, p: ClientPlayer, now: number): void {
@@ -153,6 +184,16 @@ function drawOverlay(
     ctx.globalAlpha = 1;
     highlight(ctx, px, py, sel.w * TILE, sel.h * TILE, build.canPlaceHere());
     ctx.restore();
+  } else if (build.selectedFloorDecoration) {
+    const sel = build.selectedFloorDecoration;
+    const image = floorImage(sel.imageUrl);
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    if (image.complete && image.naturalWidth) ctx.drawImage(image, px, py, sel.w * TILE, sel.h * TILE);
+    else { ctx.fillStyle = '#a855f766'; ctx.fillRect(px, py, sel.w * TILE, sel.h * TILE); }
+    ctx.globalAlpha = 1;
+    highlight(ctx, px, py, sel.w * TILE, sel.h * TILE, build.canPlaceHere());
+    ctx.restore();
   } else if (build.removing) {
     const pet = [...state.pets.values()].find((p) => p.x === hover.x && p.y === hover.y);
     if (pet) { removeMark(ctx, pet.x, pet.y, 1, 1); return; }
@@ -162,6 +203,12 @@ function drawOverlay(
       if (od && hover.x >= o.x && hover.x < o.x + od.w && hover.y >= o.y && hover.y < o.y + od.h && (!found || od.layer !== 'floor')) {
         found = { x: o.x, y: o.y, w: od.w, h: od.h };
       }
+    }
+    if (!found) {
+      const decoration = [...state.floorDecorations].reverse().find((d) =>
+        hover.x >= d.x && hover.x < d.x + d.w && hover.y >= d.y && hover.y < d.y + d.h,
+      );
+      if (decoration) found = { x: decoration.x, y: decoration.y, w: decoration.w, h: decoration.h };
     }
     if (found) removeMark(ctx, found.x, found.y, found.w, found.h);
   }
@@ -192,7 +239,12 @@ export function render(
 
   const x0 = Math.max(0, Math.floor(camX / TILE)), x1 = Math.min(size.width - 1, Math.floor((camX + canvas.width) / TILE));
   const y0 = Math.max(0, Math.floor(camY / TILE)), y1 = Math.min(size.height - 1, Math.floor((camY + canvas.height) / TILE));
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTile(ctx, state, tiles[y][x], x, y, tiles);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTileBase(ctx, state, tiles[y][x], x, y);
+
+  // Imágenes de piso: cubren la textura base, pero nunca muebles, objetos ni jugadores.
+  for (const decoration of state.floorDecorations) drawFloorDecoration(ctx, decoration);
+
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTileDetails(ctx, state, tiles[y][x], x, y, tiles);
 
   // Silla frente al centro de cada escritorio (decorativa, debajo de los jugadores)
   for (let y = y0; y <= y1; y++) {

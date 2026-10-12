@@ -20,6 +20,7 @@ RUN npm ci --omit=dev --workspace @vo/server --workspace @vo/shared --include-wo
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
+RUN mkdir -p /app/data/floor-images && chown -R node:node /app/data
 USER node
 EXPOSE 3000
 CMD ["node", "apps/server/dist/main.js"]

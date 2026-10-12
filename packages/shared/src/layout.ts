@@ -31,7 +31,7 @@ interface PlannedRoom {
 }
 
 /**
- * Calcula la distribución del piso a partir de la cantidad de oficinas y de si
+ * Calcula la distribución del espacio de trabajo a partir de la cantidad de oficinas y de si
  * hay sala de reuniones (arriba) y oficina del jefe (al medio).
  */
 export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: PlannedRoom[] } {

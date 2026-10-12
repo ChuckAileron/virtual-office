@@ -8,7 +8,7 @@ import { loadRooms, saveSession, type StoredSession } from './storage';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const room: PublicRoom = {
-  code: 'ABCD-2345', name: 'Piso de prueba', width: 24, height: 20, offices: 3, players: 0,
+  code: 'ABCD-2345', name: 'Espacio de prueba', width: 24, height: 20, offices: 3, players: 0,
 };
 const session: StoredSession = {
   token: 'test-token',
@@ -41,12 +41,22 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe('lista Mis pisos', () => {
-  it.each(['crear', 'entrar por código'])('guarda un piso antes de salir del lobby al %s', async (flow) => {
+describe('primer paso: inicio de sesión', () => {
+  it('muestra la pantalla de login antes de crear o unirse', async () => {
+    root = createRoot(container);
+    await act(async () => root.render(createElement(Lobby, { session: null, notice: '', onSession: () => {}, onEnter: () => {} })));
+    expect(container.querySelector('#authCard')).not.toBeNull();
+    expect(container.querySelector('#createForm')).toBeNull();
+    expect(container.querySelector('#joinForm')).toBeNull();
+  });
+});
+
+describe('lista Mis espacios de trabajo', () => {
+  it.each(['crear', 'entrar por código'])('guarda un espacio de trabajo antes de salir del lobby al %s', async (flow) => {
     function AppHarness() {
       const [entered, setEntered] = useState(false);
       return entered
-        ? createElement('div', null, 'Dentro del piso')
+        ? createElement('div', null, 'Dentro del espacio de trabajo')
         : createElement(Lobby, {
           session,
           notice: '',
@@ -76,15 +86,15 @@ describe('lista Mis pisos', () => {
       });
     }
 
-    expect(container.textContent).toContain('Dentro del piso');
+    expect(container.textContent).toContain('Dentro del espacio de trabajo');
     expect(loadRooms()).toEqual([{ code: room.code, name: room.name }]);
 
-    // Cierre de sesión y nuevo montaje del lobby: el piso aún debe aparecer.
+    // Nuevo montaje del lobby con sesión: el espacio de trabajo aún debe aparecer.
     await act(async () => root.unmount());
     saveSession(null);
     root = createRoot(container);
     await act(async () => root.render(createElement(Lobby, {
-      session: null,
+      session,
       notice: '',
       onSession: () => {},
       onEnter: () => {},

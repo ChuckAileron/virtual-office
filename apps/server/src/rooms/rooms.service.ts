@@ -24,7 +24,7 @@ export class RoomsService implements OnModuleInit {
   }
 
   async create(name: string, opts: LayoutOptions): Promise<RoomRuntime> {
-    if (this.rooms.size >= MAX_ROOMS) throw new HttpException('Demasiados pisos creados', HttpStatus.TOO_MANY_REQUESTS);
+    if (this.rooms.size >= MAX_ROOMS) throw new HttpException('Demasiados espacios de trabajo creados', HttpStatus.TOO_MANY_REQUESTS);
     const layout = generateLayout(opts);
     const code = await this.repo.saveRoom(name, layout);
     const room = await this.toRuntime({ code, name, ...layout });
@@ -52,6 +52,8 @@ export class RoomsService implements OnModuleInit {
       offices: row.offices,
       objects: await this.repo.loadObjects(row.code),
       pets: await this.repo.loadPets(row.code),
+      floorDecorations: await this.repo.loadFloorDecorations(row.code),
+      floorStyles: await this.repo.loadOfficeFloorStyles(row.code),
       players: new Map(),
       blocked: new Set(),
     };

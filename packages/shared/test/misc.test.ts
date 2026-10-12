@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESSORY_COLORS, formatCode, normalizeCode, sanitizeAccessories, sanitizeAppearance, sanitizeAppearancePatch, validateCredentials } from '../src';
+import { ACCESSORY_COLORS, BALD_STYLE, formatCode, normalizeCode, sanitizeAccessories, sanitizeAppearance, sanitizeAppearancePatch, styleAllowed, validateCredentials } from '../src';
 
 const ok = { gender: 'female', style: 2, skin: '#FFDCBC', hair: '#0b0b0b', shirt: '#ec4899', pants: '#334155' };
 
@@ -27,6 +27,13 @@ describe('apariencia', () => {
     expect(sanitizeAppearance({ ...ok, style: 9 })).toBeNull();
     expect(sanitizeAppearance({ ...ok, shirt: 'red;}' })).toBeNull();
     expect(sanitizeAppearance(null)).toBeNull();
+  });
+
+  it('el peinado de calvo solo vale para personajes masculinos', () => {
+    expect(styleAllowed('male', BALD_STYLE)).toBe(true);
+    expect(styleAllowed('female', BALD_STYLE)).toBe(false);
+    expect(sanitizeAppearance({ ...ok, gender: 'male', style: BALD_STYLE })).not.toBeNull();
+    expect(sanitizeAppearance({ ...ok, gender: 'female', style: BALD_STYLE })).toBeNull();
   });
 
   it('normaliza cambios parciales de apariencia', () => {

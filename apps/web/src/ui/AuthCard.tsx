@@ -7,7 +7,7 @@ interface Props {
   title: string;
   initialUsername: string;
   onAuthenticated(session: SessionResponse): void | Promise<void>;
-  onCancel(): void;
+  onCancel?(): void;
   onError(message: string): void;
 }
 
@@ -49,7 +49,7 @@ export function AuthCard({ title, initialUsername, onAuthenticated, onCancel, on
         {mode === 'register' && <CharacterCreator onChange={setAppearance} />}
         <div className="row buttons">
           <button type="submit" id="authSubmit" className="primary" disabled={busy}>{mode === 'register' ? 'Crear cuenta y entrar' : 'Ingresar'}</button>
-          <button type="button" id="authCancel" onClick={onCancel}>Cancelar</button>
+          {onCancel && <button type="button" id="authCancel" onClick={onCancel}>Cancelar</button>}
         </div>
       </form>
     </section>

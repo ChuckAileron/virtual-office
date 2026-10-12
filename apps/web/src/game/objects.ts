@@ -107,6 +107,17 @@ const painters: Record<string, Painter> = {
     g.fillStyle = '#ffe08a'; g.beginPath(); g.moveTo(8, 10); g.lineTo(24, 10); g.lineTo(20, 1); g.lineTo(12, 1); g.closePath(); g.fill();
     r('#ffc94a', 8, 9, 16, 2); r('#fff3c4', 13, 3, 6, 4);
   },
+  giant_tv(r, g) {
+    r('#00000033', 13, 59, 70, 4);
+    r('#202431', 3, 2, 90, 51); r('#555d70', 5, 3, 86, 48);
+    r('#0e111a', 7, 5, 82, 43); r('#101d32', 9, 7, 78, 39);
+    g.fillStyle = '#153450'; g.fillRect(9, 7, 78, 39);
+    g.fillStyle = '#17677a'; g.beginPath(); g.moveTo(9, 34); g.lineTo(35, 15); g.lineTo(52, 27); g.lineTo(72, 10); g.lineTo(87, 21); g.lineTo(87, 46); g.lineTo(9, 46); g.closePath(); g.fill();
+    g.fillStyle = '#53b6a5'; g.beginPath(); g.arc(68, 17, 5, 0, Math.PI * 2); g.fill();
+    r('#94e0c9', 10, 8, 21, 1); r('#ffffff44', 10, 10, 2, 20);
+    r('#323847', 43, 53, 10, 6); r('#737d91', 30, 58, 36, 3);
+    r('#3ddc84', 86, 49, 2, 2);
+  },
   rug(r) {
     r('#6d2f4a', 1, 1, 62, 62); r('#a8456f', 3, 3, 58, 58); r('#f2d6a0', 6, 6, 52, 52);
     r('#c9556f', 8, 8, 48, 48); r('#6d2f4a', 12, 12, 40, 40); r('#e8a85a', 14, 14, 36, 36);

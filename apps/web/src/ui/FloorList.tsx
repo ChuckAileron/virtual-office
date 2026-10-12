@@ -9,9 +9,9 @@ interface Props {
 export function FloorList({ rooms, onEnter, onForget }: Props) {
   return (
     <section className="card">
-      <h2>Mis pisos (guardados en este equipo)</h2>
+      <h2>Mis espacios de trabajo (guardados en este equipo)</h2>
       <ul id="roomList" className="rooms">
-        {rooms.length === 0 && <li>Aún no tienes pisos. Crea uno o usa un código de invitación.</li>}
+        {rooms.length === 0 && <li>Aún no tienes espacios de trabajo. Crea uno o usa un código de invitación.</li>}
         {rooms.map((r) => (
           <li key={r.code}>
             <div>

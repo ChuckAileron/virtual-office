@@ -5,14 +5,14 @@ import type { Pool } from 'pg';
 /**
  * Persistencia de desarrollo para el modo `memory` (pg-mem).
  *
- * Sin esto, cada reinicio del servidor borra cuentas, pisos y objetos porque la
+ * Sin esto, cada reinicio del servidor borra cuentas, espacios de trabajo y objetos porque la
  * base vive en RAM. Guardamos un snapshot JSON de las tablas y lo restauramos al
  * arrancar. Los ids seriales se omiten: al restaurar en tablas vacías se
  * reasignan de forma consecutiva y la secuencia sigue avanzando con normalidad.
  */
 
 // Tablas cuyo contenido se persiste.
-const TABLES = ['users', 'rooms', 'objects', 'pets'] as const;
+const TABLES = ['users', 'rooms', 'objects', 'pets', 'floor_decorations', 'floor_styles'] as const;
 
 interface MemoryTable {
   find(): Array<Record<string, unknown>>;

@@ -3,8 +3,8 @@ import {
   CATALOG, CATALOG_LIST, MAX_OBJECTS, PlacedObject, RoomState, T, generateLayout, rebuildBlocked, validatePlacement,
 } from '../src';
 
-const mkRoom = (tiles: number[][], objects: PlacedObject[] = []): RoomState => {
-  const room: RoomState = { tiles, objects, players: new Map(), blocked: new Set() };
+const mkRoom = (tiles: number[][], objects: PlacedObject[] = [], offices?: RoomState['offices']): RoomState => {
+  const room: RoomState = { tiles, objects, offices, players: new Map(), blocked: new Set() };
   rebuildBlocked(room);
   return room;
 };
@@ -52,6 +52,21 @@ describe('validatePlacement', () => {
     expect(validatePlacement(mkRoom(layout.tiles, [{ type: 'plant', id: 1, x: px, y: py }]), 'sofa', px, py)).toBeTruthy();
   });
 
+  it('la TV gigante solo se coloca en la sala de reuniones', () => {
+    const withConference = generateLayout({ offices: 2, conference: true });
+    const conference = withConference.offices.find((o) => o.kind === 'conference')!;
+    const officeRoom = mkRoom(withConference.tiles, [], withConference.offices);
+    expect(validatePlacement(officeRoom, 'giant_tv', office.x + 1, office.y + 3)).toMatch(/sala de reuniones/i);
+
+    let placed = false;
+    for (let y = conference.y + 1; y < conference.y + conference.h - 1 && !placed; y++) {
+      for (let x = conference.x + 1; x < conference.x + conference.w - 3 && !placed; x++) {
+        if (validatePlacement(officeRoom, 'giant_tv', x, y) === null) placed = true;
+      }
+    }
+    expect(placed).toBe(true);
+  });
+
   it('un jugador encima impide un objeto sólido, pero no una alfombra', () => {
     const r = mkRoom(layout.tiles);
     r.players.set('a', { x: px, y: py });
@@ -59,7 +74,7 @@ describe('validatePlacement', () => {
     expect(validatePlacement(r, 'rug', px, py)).toBeNull();
   });
 
-  it('no puede aislar una zona del piso', () => {
+  it('no puede aislar una zona del espacio de trabajo', () => {
     const corridor = mkRoom([[1, 1, 1, 1, 1], [1, 0, 0, 0, 1], [1, 1, 1, 1, 1]]);
     expect(validatePlacement(corridor, 'plant', 2, 1)).toBeTruthy();
     const open = mkRoom([[1, 1, 1, 1, 1], [1, 0, 0, 0, 1], [1, 0, 0, 0, 1], [1, 1, 1, 1, 1]]);

@@ -11,6 +11,8 @@ export interface AppConfig {
   webDist: string;
   /** Archivo de persistencia del modo `memory` (desarrollo sin Postgres). */
   memoryFile: string;
+  /** Directorio persistente de imágenes de decoración. */
+  uploadsDir: string;
   trustProxy: boolean;
   production: boolean;
 }
@@ -45,6 +47,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     petTickMs: num(env.PET_TICK_MS, 700),
     webDist: env.WEB_DIST || path.join(__dirname, '..', '..', 'web', 'dist'),
     memoryFile: env.MEMORY_FILE || path.join(__dirname, '..', '..', '..', 'data', 'offices.json'),
+    uploadsDir: env.UPLOADS_DIR || path.join(__dirname, '..', '..', '..', 'data', 'floor-images'),
     trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
     production,
   };

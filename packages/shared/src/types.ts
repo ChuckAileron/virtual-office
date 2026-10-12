@@ -20,7 +20,7 @@ export const DIRS: Record<Dir, readonly [number, number]> = {
   right: [1, 0],
 };
 
-/** Recinto del piso (oficina, oficina del jefe o sala de reuniones). */
+/** Recinto del espacio de trabajo (oficina, oficina del jefe o sala de reuniones). */
 export interface Office {
   id: number;
   kind: RoomKind;
@@ -58,6 +58,22 @@ export interface PlacedObject {
   y: number;
 }
 
+/** Imagen colocada como capa de piso dentro de un recinto. Dimensiones en tiles. */
+export interface FloorDecoration {
+  id: number;
+  imageUrl: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface OfficeFloorStyle {
+  officeId: number;
+  color: string;
+  pattern: 'solid' | 'checker';
+}
+
 export interface Pet {
   id: number;
   kind: string;
@@ -90,7 +106,7 @@ export interface Point {
   y: number;
 }
 
-/** Estado de un piso en memoria que necesitan las reglas de colocación y movimiento. */
+/** Estado de un espacio de trabajo en memoria que necesitan las reglas de colocación y movimiento. */
 export interface RoomState {
   tiles: Tiles;
   offices?: Office[];

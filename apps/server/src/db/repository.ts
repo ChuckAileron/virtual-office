@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { CODE_ALPHABET, Appearance, FloorSize, Layout, Office, Pet, PlacedObject, Tiles } from '@vo/shared';
+import { CODE_ALPHABET, Appearance, FloorDecoration, FloorSize, Layout, Office, OfficeFloorStyle, Pet, PlacedObject, Tiles } from '@vo/shared';
 
 export const DB = Symbol('DB');
 
@@ -52,6 +52,22 @@ const SCHEMA = [
     x INTEGER NOT NULL,
     y INTEGER NOT NULL,
     dir TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS floor_decorations (
+    id SERIAL PRIMARY KEY,
+    room_code TEXT NOT NULL,
+    image_url TEXT NOT NULL,
+    x INTEGER NOT NULL,
+    y INTEGER NOT NULL,
+    w INTEGER NOT NULL,
+    h INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS floor_styles (
+    room_code TEXT NOT NULL,
+    office_id INTEGER NOT NULL,
+    color TEXT NOT NULL,
+    pattern TEXT NOT NULL,
+    PRIMARY KEY (room_code, office_id)
   )`,
 ];
 
@@ -150,6 +166,41 @@ export class Repository {
   async loadPets(code: string): Promise<Pet[]> {
     const r = await this.db.query('SELECT id, kind, color, x, y, dir FROM pets WHERE room_code = $1 ORDER BY id', [code]);
     return r.rows.map((p) => ({ id: Number(p.id), kind: p.kind, color: p.color, x: Number(p.x), y: Number(p.y), dir: p.dir }));
+  }
+
+  async addFloorDecoration(code: string, imageUrl: string, x: number, y: number, w: number, h: number): Promise<FloorDecoration> {
+    const r = await this.db.query(
+      'INSERT INTO floor_decorations (room_code, image_url, x, y, w, h) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [code, imageUrl, x, y, w, h],
+    );
+    return { id: Number(r.rows[0].id), imageUrl, x, y, w, h };
+  }
+
+  async removeFloorDecoration(code: string, id: number): Promise<void> {
+    await this.db.query('DELETE FROM floor_decorations WHERE id = $1 AND room_code = $2', [id, code]);
+  }
+
+  async loadFloorDecorations(code: string): Promise<FloorDecoration[]> {
+    const r = await this.db.query(
+      'SELECT id, image_url, x, y, w, h FROM floor_decorations WHERE room_code = $1 ORDER BY id',
+      [code],
+    );
+    return r.rows.map((d) => ({
+      id: Number(d.id), imageUrl: d.image_url, x: Number(d.x), y: Number(d.y), w: Number(d.w), h: Number(d.h),
+    }));
+  }
+
+  async loadOfficeFloorStyles(code: string): Promise<OfficeFloorStyle[]> {
+    const r = await this.db.query('SELECT office_id, color, pattern FROM floor_styles WHERE room_code = $1', [code]);
+    return r.rows.map((style) => ({ officeId: Number(style.office_id), color: style.color, pattern: style.pattern }));
+  }
+
+  async saveOfficeFloorStyle(code: string, style: OfficeFloorStyle): Promise<void> {
+    await this.db.query(
+      `INSERT INTO floor_styles (room_code, office_id, color, pattern) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (room_code, office_id) DO UPDATE SET color = EXCLUDED.color, pattern = EXCLUDED.pattern`,
+      [code, style.officeId, style.color, style.pattern],
+    );
   }
 
   private toUser(row: any): UserRow {

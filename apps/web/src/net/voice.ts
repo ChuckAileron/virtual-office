@@ -174,7 +174,7 @@ export class VoiceController {
     this.set({ ...INITIAL });
   }
 
-  /** Cierra todo al salir del piso (sin avisar al servidor: ya no hay conexión). */
+  /** Cierra todo al salir del espacio de trabajo (sin avisar al servidor: ya no hay conexión). */
   dispose(): void {
     this.teardown();
     this.listeners.clear();

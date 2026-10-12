@@ -2,11 +2,19 @@ import { sanitizeAccessories } from './accessories';
 import { Appearance } from './types';
 
 const HEX = /^#[0-9a-f]{6}$/i;
-export const STYLES = 3;
+export const STYLES = 4;
+/** Peinado de calvo, reservado a los personajes masculinos. */
+export const BALD_STYLE = 3;
 const COLOR_KEYS = ['skin', 'hair', 'shirt', 'pants'] as const;
 
 /** Cambio parcial permitido en la apariencia: peinado y colores del cuerpo. */
 export type AppearancePatch = Partial<Pick<Appearance, 'style' | 'skin' | 'hair' | 'shirt' | 'pants'>>;
+
+/** Indica si un peinado es válido para el género dado (el calvo solo es masculino). */
+export function styleAllowed(gender: Appearance['gender'], style: number): boolean {
+  if (!Number.isInteger(style) || style < 0 || style >= STYLES) return false;
+  return style !== BALD_STYLE || gender === 'male';
+}
 
 /**
  * Valida y normaliza un cambio parcial de apariencia (peinado / colores).
@@ -29,7 +37,7 @@ export function sanitizeAppearance(a: unknown): Appearance | null {
   if (!a || typeof a !== 'object') return null;
   const src = a as Record<string, unknown>;
   if (src.gender !== 'male' && src.gender !== 'female') return null;
-  if (typeof src.style !== 'number' || !Number.isInteger(src.style) || src.style < 0 || src.style >= STYLES) return null;
+  if (typeof src.style !== 'number' || !styleAllowed(src.gender, src.style)) return null;
   const colors: Partial<Record<(typeof COLOR_KEYS)[number], string>> = {};
   for (const k of COLOR_KEYS) {
     const v = src[k];

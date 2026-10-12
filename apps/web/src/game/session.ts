@@ -1,6 +1,6 @@
-import type { Accessories, AppearancePatch, PlayerView } from '@vo/shared';
+import type { Accessories, AppearancePatch, FloorDecoration, OfficeFloorStyle, PlayerView } from '@vo/shared';
 import { GAME } from '@vo/shared';
-import { getConfig } from '../net/api';
+import { getConfig, uploadFloorImage } from '../net/api';
 import { createSocket, type GameSocket } from '../net/socket';
 import { VoiceController } from '../net/voice';
 import { BuildController } from './build';
@@ -41,7 +41,7 @@ export class GameSession {
   private closed = false;
   private detachInput: (() => void) | null = null;
 
-  constructor(token: string, code: string, private readonly onClose: (reason: string) => void) {
+  constructor(private readonly token: string, code: string, private readonly onClose: (reason: string) => void) {
     this.build = new GameBuild(this).create();
     this.voice = new VoiceController({
       requestToken: () => new Promise((resolve) => {
@@ -113,6 +113,17 @@ export class GameSession {
     });
     s.on('object_add', ({ object }) => { this.state?.objects.push(object); });
     s.on('object_remove', ({ id }) => { if (this.state) this.state.objects = this.state.objects.filter((o) => o.id !== id); });
+    s.on('floor_decoration_add', ({ decoration }) => { this.state?.floorDecorations.push(decoration); });
+    s.on('floor_decoration_remove', ({ id }) => {
+      if (this.state) this.state.floorDecorations = this.state.floorDecorations.filter((d) => d.id !== id);
+    });
+    s.on('office_floor_style', ({ style }) => {
+      if (!this.state) return;
+      const index = this.state.floorStyles.findIndex((entry) => entry.officeId === style.officeId);
+      if (index < 0) this.state.floorStyles.push(style);
+      else this.state.floorStyles[index] = style;
+      this.emit();
+    });
     s.on('pet_add', ({ pet }) => { this.state?.pets.set(pet.id, makePet(pet)); });
     s.on('pet_remove', ({ id }) => { this.state?.pets.delete(id); });
     s.on('pet_move', ({ id, x, y, dir }) => {
@@ -138,10 +149,18 @@ export class GameSession {
   /** Acciones de red usadas por el modo decorar. */
   sendPlace = (kind: string, x: number, y: number): void => { if (this.socket.connected) this.socket.emit('place', { kind, x, y }); };
   sendRemoveObject = (id: number): void => { if (this.socket.connected) this.socket.emit('remove_object', { id }); };
+  sendPlaceFloorDecoration = (decoration: Omit<FloorDecoration, 'id'>): void => {
+    if (this.socket.connected) this.socket.emit('place_floor_decoration', decoration);
+  };
+  sendRemoveFloorDecoration = (id: number): void => { if (this.socket.connected) this.socket.emit('remove_floor_decoration', { id }); };
+  sendOfficeFloorStyle = (style: OfficeFloorStyle): void => {
+    if (this.socket.connected) this.socket.emit('set_office_floor_style', style);
+  };
   sendPlacePet = (kind: string, color: string, x: number, y: number): void => { if (this.socket.connected) this.socket.emit('place_pet', { kind, color, x, y }); };
   sendRemovePet = (id: number): void => { if (this.socket.connected) this.socket.emit('remove_pet', { id }); };
   sendLook = (acc: Partial<Accessories>): void => { if (this.socket.connected) this.socket.emit('set_look', { acc }); };
   sendAppearance = (look: AppearancePatch): void => { if (this.socket.connected) this.socket.emit('set_look', { look }); };
+  uploadFloorImage = (file: File) => uploadFloorImage(file, this.token);
 
   sendChat(text: string): void {
     const t = text.trim();
@@ -263,7 +282,7 @@ export class GameSession {
     if (where !== this.where) { this.where = where; this.emit(); }
   }
 
-  /** Salida voluntaria del piso. */
+  /** Salida voluntaria del espacio de trabajo. */
   leave(): void { this.close(''); }
 
   private close(reason: string): void {
@@ -288,6 +307,8 @@ class GameBuild {
       {
         place: (k, x, y) => s.sendPlace(k, x, y),
         removeObject: (id) => s.sendRemoveObject(id),
+        placeFloorDecoration: (imageUrl, x, y, w, h) => s.sendPlaceFloorDecoration({ imageUrl, x, y, w, h }),
+        removeFloorDecoration: (id) => s.sendRemoveFloorDecoration(id),
         placePet: (k, c, x, y) => s.sendPlacePet(k, c, x, y),
         removePet: (id) => s.sendRemovePet(id),
         setLook: (acc) => s.sendLook(acc),

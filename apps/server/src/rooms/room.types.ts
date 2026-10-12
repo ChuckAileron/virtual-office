@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io';
 import type {
-  Appearance, ClientToServerEvents, Dir, FloorSize, Office, PlacedObject, Pet, Point, ServerToClientEvents, Tiles,
+  Appearance, ClientToServerEvents, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Point, ServerToClientEvents, Tiles,
 } from '@vo/shared';
 
 export type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -31,6 +31,8 @@ export interface RoomRuntime {
   offices: Office[];
   objects: PlacedObject[];
   pets: Pet[];
+  floorDecorations: FloorDecoration[];
+  floorStyles: OfficeFloorStyle[];
   players: Map<string, Player>;
   blocked: Set<string>;
 }

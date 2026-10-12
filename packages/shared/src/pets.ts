@@ -35,7 +35,7 @@ export function tileFree(room: PetRoom, x: number, y: number, self: Pet | null):
 export function validatePet(room: PetRoom, kind: unknown, color: unknown, x: unknown, y: unknown): string | null {
   if (!isKind(kind) || !isColor(color) || !Number.isInteger(x) || !Number.isInteger(y)) return 'Mascota inválida';
   const px = x as number, py = y as number;
-  if (room.pets.length >= MAX_PETS) return 'Se alcanzó el máximo de mascotas del piso';
+  if (room.pets.length >= MAX_PETS) return 'Se alcanzó el máximo de mascotas del espacio de trabajo';
   if (!officeAt(room.offices, px, py)) return 'Las mascotas solo pueden vivir dentro de una oficina o sala';
   if (!tileFree(room, px, py, null)) return 'Aquí no se puede dejar una mascota';
   return null;

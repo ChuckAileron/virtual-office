@@ -33,10 +33,10 @@ export class RoomsController {
   ) {
     const token = /^Bearer\s+(.+)$/i.exec(authorization ?? '')?.[1];
     if (!(await this.auth.userFromToken(token))) {
-      throw new HttpException('Inicia sesión para crear un piso', HttpStatus.UNAUTHORIZED);
+      throw new HttpException('Inicia sesión para crear un espacio de trabajo', HttpStatus.UNAUTHORIZED);
     }
     const name = cleanText(body?.name, 32);
-    if (!name) throw new HttpException('El nombre del piso es obligatorio', HttpStatus.BAD_REQUEST);
+    if (!name) throw new HttpException('El nombre del espacio de trabajo es obligatorio', HttpStatus.BAD_REQUEST);
     const room = await this.rooms.create(name, { offices: body?.offices, conference: body?.conference, boss: body?.boss });
     return this.rooms.toPublic(room);
   }

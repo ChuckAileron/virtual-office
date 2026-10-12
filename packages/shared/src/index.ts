@@ -1,6 +1,7 @@
 export * from './types';
 export * from './layout';
 export * from './objects';
+export * from './floor-decorations';
 export * from './pets';
 export * from './accessories';
 export * from './appearance';

@@ -1,14 +1,18 @@
 import 'reflect-metadata';
+import { mkdtempSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { Test } from '@nestjs/testing';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { newDb } from 'pg-mem';
 import { io as connect, type Socket } from 'socket.io-client';
 import request from 'supertest';
+import { normalizeCode } from '@vo/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { loadConfig } from '../src/config';
-import { DB } from '../src/db/repository';
+import { DB, Repository } from '../src/db/repository';
 import { configureApp } from '../src/main';
 
 const look = {
@@ -19,9 +23,10 @@ const look = {
 let app: NestExpressApplication;
 let base: string;
 const sockets: Socket[] = [];
+const uploadsDir = mkdtempSync(path.join(os.tmpdir(), 'vo-floor-images-'));
 
 beforeAll(async () => {
-  const config = loadConfig({ JWT_SECRET: 'test-secret', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecret-devsecret-devsecret-12', LIVEKIT_PUBLIC_URL: 'wss://x/livekit', PET_TICK_MS: '100000' });
+  const config = { ...loadConfig({ JWT_SECRET: 'test-secret', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecret-devsecret-devsecret-12', LIVEKIT_PUBLIC_URL: 'wss://x/livekit', PET_TICK_MS: '100000' }), uploadsDir };
   const { Pool } = newDb().adapters.createPg();
   const mod = await Test.createTestingModule({ imports: [AppModule.register(config)] })
     .overrideProvider(DB).useValue(new Pool())
@@ -35,6 +40,7 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const s of sockets) s.close();
   await app.close();
+  rmSync(uploadsDir, { recursive: true, force: true });
 });
 
 const register = async (username: string) =>
@@ -57,14 +63,64 @@ describe('REST', () => {
     expect((await request(base).post('/api/login').send({ username: 'Ana_1', password: 'nope' })).status).toBe(401);
   });
 
-  it('crear piso exige sesión y la consulta es por código', async () => {
+  it('crear espacio de trabajo exige sesión y la consulta es por código', async () => {
     expect((await request(base).post('/api/rooms').send({ name: 'X' })).status).toBe(401);
     const token = await register('creador');
-    const r = await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Piso 1', offices: 2 });
+    const r = await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Espacio 1', offices: 2 });
     expect(r.status).toBe(201);
-    expect((await request(base).get(`/api/rooms/${r.body.code}`)).body.name).toBe('Piso 1');
+    expect((await request(base).get(`/api/rooms/${r.body.code}`)).body.name).toBe('Espacio 1');
     expect((await request(base).get('/api/rooms/ZZZZ-ZZZZ')).status).toBe(404);
     expect((await request(base).get('/api/health')).body.ok).toBe(true);
+  });
+
+  it('sube una imagen, la coloca solo dentro de una oficina y la entrega a quienes entran', async () => {
+    const token = await register('decoradora');
+    const otherToken = await register('visitante_imagen');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Espacio con imagen', offices: 1 })).body;
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/nxkAAAAASUVORK5CYII=', 'base64');
+    expect((await request(base).post('/api/floor-images').attach('image', png, { filename: 'floor.png', contentType: 'image/png' })).status).toBe(401);
+    const uploaded = await request(base)
+      .post('/api/floor-images')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('image', png, { filename: 'floor.png', contentType: 'image/png' });
+    expect(uploaded.status).toBe(201);
+    expect((await request(base).get(uploaded.body.imageUrl)).status).toBe(200);
+    expect((await request(base).post('/api/floor-images').set('Authorization', `Bearer ${token}`).attach('image', Buffer.from('bad'), { filename: 'bad.png', contentType: 'image/png' })).status).toBe(400);
+
+    const creator = open(token);
+    const creatorWelcome = once<any>(creator, 'welcome');
+    creator.emit('join', { code: room.code });
+    const welcome = await creatorWelcome;
+    const office = welcome.room.offices.find((o: any) => o.kind === 'office');
+    const visitor = open(otherToken);
+    const visitorWelcome = once<any>(visitor, 'welcome');
+    visitor.emit('join', { code: room.code });
+    expect((await visitorWelcome).floorDecorations).toEqual([]);
+
+    const placed = once<any>(visitor, 'floor_decoration_add');
+    creator.emit('place_floor_decoration', { imageUrl: uploaded.body.imageUrl, x: office.x + 1, y: office.y + 1, w: 2, h: 2 });
+    const event = await placed;
+    expect(event.decoration).toMatchObject({ imageUrl: uploaded.body.imageUrl, x: office.x + 1, y: office.y + 1, w: 2, h: 2 });
+
+    const finalToken = await register('visitante_final');
+    const finalSocket = open(finalToken);
+    const finalWelcome = once<any>(finalSocket, 'welcome');
+    finalSocket.emit('join', { code: room.code });
+    expect((await finalWelcome).floorDecorations).toEqual([event.decoration]);
+  });
+
+  it('guarda y actualiza el patrón de piso por oficina', async () => {
+    const token = await register('decoradora_piso');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Espacio de color', offices: 1 })).body;
+    const repository = app.get(Repository);
+    const code = normalizeCode(room.code);
+    const solid = { officeId: 1, color: '#335577', pattern: 'solid' as const };
+    await repository.saveOfficeFloorStyle(code, solid);
+    expect(await repository.loadOfficeFloorStyles(code)).toEqual([solid]);
+
+    const checker = { ...solid, color: '#ddaa66', pattern: 'checker' as const };
+    await repository.saveOfficeFloorStyle(code, checker);
+    expect(await repository.loadOfficeFloorStyles(code)).toEqual([checker]);
   });
 });
 

@@ -39,7 +39,7 @@ function Hud({ session }: { session: GameSession }) {
       {v.active && <button id="muteBtn" className={v.incomingMuted ? 'on' : ''} onClick={() => session.voice.toggleIncomingMute()}>{v.incomingMuted ? '🔇 Silenciado' : '🔈 Silenciar'}</button>}
       {v.active && <button id="camBtn" className={v.cam ? 'on' : ''} title="Activar la cámara para quienes estén en tu recinto o cerca" onClick={() => void session.voice.toggleCamera()}>📷 Cámara</button>}
       {v.active && <button id="screenBtn" className={v.screen ? 'on' : ''} title="Proyectar tu pantalla completa" onClick={() => void session.voice.toggleScreen()}>🖥 Proyectar</button>}
-      <button id="buildBtn" className={session.build.open ? 'on' : ''} title="Personalizar el piso con objetos de oficina" onClick={() => session.build.toggle()}>🛠 Decorar</button>
+      <button id="buildBtn" className={session.build.open ? 'on' : ''} title="Personalizar el espacio de trabajo con objetos de oficina" onClick={() => session.build.toggle()}>🛠 Decorar</button>
       <button id="leaveBtn" onClick={() => session.leave()}>Salir</button>
       <div id="voiceStatus">{status}</div>
     </div>
@@ -113,7 +113,7 @@ export function GameScreen({ session }: { session: GameSession }) {
           <div id="help">Mover: WASD / flechas</div>
         </>
       )}
-      {!session.state && <div id="help">Entrando al piso…</div>}
+      {!session.state && <div id="help">Entrando al espacio de trabajo…</div>}
     </div>
   );
 }

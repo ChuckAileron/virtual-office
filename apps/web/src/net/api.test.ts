@@ -31,10 +31,10 @@ describe('api', () => {
 
   it('createRoom usa Bearer y convierte offices a número', async () => {
     const fn = mockFetch(201, { code: 'ABCD-EFGH' });
-    await createRoom('Piso', { offices: '4', conference: true, boss: false }, 'tok');
+    await createRoom('Espacio', { offices: '4', conference: true, boss: false }, 'tok');
     const init = fn.mock.calls[0][1];
     expect(init.headers.Authorization).toBe('Bearer tok');
-    expect(JSON.parse(init.body)).toEqual({ name: 'Piso', offices: 4, conference: true, boss: false });
+    expect(JSON.parse(init.body)).toEqual({ name: 'Espacio', offices: 4, conference: true, boss: false });
   });
 
   it('getLayoutSize arma la query', async () => {
@@ -51,10 +51,10 @@ describe('api', () => {
   });
 
   it('propaga { message } como ApiRequestError con el status', async () => {
-    mockFetch(404, { message: 'Piso no encontrado' });
+    mockFetch(404, { message: 'Espacio no encontrado' });
     const err = await getRoom('X').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiRequestError);
-    expect(err).toMatchObject({ message: 'Piso no encontrado', status: 404 });
+    expect(err).toMatchObject({ message: 'Espacio no encontrado', status: 404 });
   });
 
   it('une mensajes de validación en arreglo', async () => {

@@ -1,4 +1,4 @@
-import { officeAt, type CatalogEntry, type Dir, type Office, type PlacedObject, type Pet, type PlayerView, type WelcomePayload } from '@vo/shared';
+import { officeAt, type CatalogEntry, type Dir, type FloorDecoration, type Office, type OfficeFloorStyle, type PlacedObject, type Pet, type PlayerView, type WelcomePayload } from '@vo/shared';
 
 export interface ClientPlayer extends PlayerView {
   rx: number;
@@ -20,6 +20,8 @@ export interface GameState {
   players: Map<string, ClientPlayer>;
   pets: Map<number, ClientPet>;
   objects: PlacedObject[];
+  floorDecorations: FloorDecoration[];
+  floorStyles: OfficeFloorStyle[];
   catalog: CatalogEntry[];
   defs: Map<string, CatalogEntry>;
   petKinds: WelcomePayload['petKinds'];
@@ -41,6 +43,8 @@ export function createState(w: WelcomePayload): GameState {
     players: new Map(),
     pets: new Map(),
     objects: [...(w.objects ?? [])],
+    floorDecorations: [...(w.floorDecorations ?? [])],
+    floorStyles: [...(w.floorStyles ?? [])],
     catalog: w.catalog ?? [],
     defs: new Map((w.catalog ?? []).map((d) => [d.type, d])),
     petKinds: w.petKinds ?? [],
