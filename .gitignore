@@ -8,6 +8,14 @@ data/
 .env.*
 !.env.example
 dist/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
 *.log
 npm-debug.log*
 .DS_Store

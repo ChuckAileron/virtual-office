@@ -13,8 +13,8 @@ https://{$LAN_IP} {
 		file_server
 	}
 
-	handle_path /livekit/* {
-		reverse_proxy livekit:7880
+	handle /janus* {
+		reverse_proxy janus:8188
 	}
 
 	handle {

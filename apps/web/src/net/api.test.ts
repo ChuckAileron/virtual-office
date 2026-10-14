@@ -44,10 +44,10 @@ describe('api', () => {
   });
 
   it('getRoom codifica el código y getConfig lee la config', async () => {
-    const fn = mockFetch(200, { livekitUrl: null });
+    const fn = mockFetch(200, { janusUrl: null });
     await getRoom('AB CD');
     expect(fn.mock.calls[0][0]).toBe('/api/rooms/AB%20CD');
-    expect(await getConfig()).toEqual({ livekitUrl: null });
+    expect(await getConfig()).toEqual({ janusUrl: null });
   });
 
   it('propaga { message } como ApiRequestError con el status', async () => {

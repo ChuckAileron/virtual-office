@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { APP_CONFIG, AppConfig } from './config';
 import { DatabaseModule } from './db/database.module';
 import { GameGateway } from './realtime/game.gateway';
+import { JanusService } from './realtime/janus.service';
 import { VoiceService } from './realtime/voice.service';
 import { RoomsModule } from './rooms/rooms.module';
 
@@ -22,7 +23,7 @@ export class AppModule {
       module: AppModule,
       imports: [ConfigModule.forRoot(config), DatabaseModule, AuthModule, RoomsModule],
       controllers: [AppController],
-      providers: [GameGateway, VoiceService],
+      providers: [GameGateway, JanusService, VoiceService],
     };
   }
 }

@@ -48,7 +48,7 @@ export class GameSession {
         if (!this.socket.connected) { resolve({ ok: false, error: 'Sin conexión con el servidor' }); return; }
         this.socket.emit('voice_token', resolve);
       }),
-      getConfigUrl: () => getConfig().then((c) => c.livekitUrl).catch(() => null),
+      getConfigUrl: () => getConfig().then((c) => c.janusUrl).catch(() => null),
       getName: (id) => this.state?.players.get(id)?.name ?? 'Alguien',
       setLevel: (id, level) => {
         const st = this.state;

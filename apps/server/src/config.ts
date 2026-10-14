@@ -5,7 +5,20 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   jwtSecret: string;
-  livekit: { apiKey: string; apiSecret: string; publicUrl: string | null };
+  janus: {
+    /** URL WebSocket que usa el navegador. */
+    publicUrl: string | null;
+    /** Secreto con el que se derivan id de sala y PIN. Nunca sale del servidor. */
+    roomSecret: string;
+    /** API HTTP interna de Janus (p. ej. `http://janus:8088/janus`). Si es null, modo legado. */
+    apiUrl: string | null;
+    /** Secreto HMAC con el que se firman los tokens que exige Janus. */
+    authSecret: string | null;
+    /** admin_key de VideoRoom: solo el servidor puede crear salas. */
+    adminKey: string | null;
+    /** Validez de los tokens de Janus, en segundos. */
+    tokenTtlSeconds: number;
+  };
   idleMs: number;
   petTickMs: number;
   webDist: string;
@@ -38,10 +51,13 @@ export function loadConfig(env: Env = process.env): AppConfig {
     port: num(env.PORT, 3000),
     databaseUrl: env.DATABASE_URL || 'postgresql://localhost:5432/office',
     jwtSecret,
-    livekit: {
-      apiKey: env.LIVEKIT_API_KEY || '',
-      apiSecret: env.LIVEKIT_API_SECRET || '',
-      publicUrl: env.LIVEKIT_PUBLIC_URL || null,
+    janus: {
+      publicUrl: env.JANUS_PUBLIC_URL || null,
+      roomSecret: env.JANUS_ROOM_SECRET || jwtSecret,
+      apiUrl: env.JANUS_API_URL || null,
+      authSecret: env.JANUS_AUTH_SECRET || null,
+      adminKey: env.JANUS_ADMIN_KEY || null,
+      tokenTtlSeconds: num(env.JANUS_TOKEN_TTL, 24 * 60 * 60),
     },
     idleMs: num(env.IDLE_MS, 5 * 60 * 1000),
     petTickMs: num(env.PET_TICK_MS, 700),

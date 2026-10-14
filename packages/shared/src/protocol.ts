@@ -31,8 +31,8 @@ export interface PublicRoom {
   players: number;
 }
 export interface ClientConfig {
-  /** URL WebSocket de LiveKit; si es null el cliente usa `wss://<host>/livekit`. */
-  livekitUrl: string | null;
+  /** URL WebSocket de Janus; si es null el cliente usa `wss://<host>/janus`. */
+  janusUrl: string | null;
 }
 export interface ApiError {
   message: string;
@@ -65,7 +65,17 @@ export interface WelcomePayload {
   players: PlayerView[];
 }
 
-export type VoiceTokenResult = { ok: true; token: string; url: string | null } | { ok: false; error: string };
+export type VoiceTokenResult =
+  | {
+      ok: true;
+      room: number;
+      pin: string;
+      url: string | null;
+      identity: string;
+      /** Token firmado que Janus exige con `token_auth`; ausente en modo desarrollo. */
+      token?: string;
+    }
+  | { ok: false; error: string };
 
 /**
  * Eventos del cliente al servidor. La conexión se autentica con
@@ -86,7 +96,7 @@ export interface ClientToServerEvents {
   set_look: (p: { acc?: Partial<Accessories>; look?: AppearancePatch }) => void;
   /** Indicador de micrófono activo (solo informativo para la lista de jugadores). */
   voice: (p: { on: boolean }) => void;
-  /** Pide un token de LiveKit para el espacio de trabajo actual. */
+  /** Pide los datos de conexión a Janus para el espacio de trabajo actual. */
   voice_token: (ack: (r: VoiceTokenResult) => void) => void;
 }
 
@@ -111,8 +121,7 @@ export interface ServerToClientEvents {
   error: (p: { error: string }) => void;
   /**
    * Ids de los jugadores con los que puedes hablar (misma oficina o cerca en el pasillo).
-   * El cliente solo debe suscribirse en LiveKit al audio/video de esos participantes
-   * (la identidad del participante en LiveKit es el id del jugador).
+    * El cliente solo debe suscribirse en Janus al audio/video de esos participantes.
    */
   audible: (p: { ids: string[] }) => void;
   /** Otra sesión del mismo usuario tomó esta conexión. */

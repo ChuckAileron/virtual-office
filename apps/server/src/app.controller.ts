@@ -13,6 +13,6 @@ export class AppController {
 
   @Get('config')
   clientConfig(): ClientConfig {
-    return { livekitUrl: this.config.livekit.publicUrl };
+    return { janusUrl: this.config.janus.publicUrl };
   }
 }

@@ -24,7 +24,7 @@ afterEach(async () => {
 describe('arranque de la app', () => {
   it('muestra el loader mientras carga y luego la pantalla de inicio de sesión', async () => {
     vi.useFakeTimers();
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ livekitUrl: null }) })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ janusUrl: null }) })));
     root = createRoot(container);
     await act(async () => { root.render(createElement(App)); });
 

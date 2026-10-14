@@ -6,7 +6,7 @@ Oficina virtual 2D multijugador pensada para funcionar **dentro de una red local
 |------|-----------|
 | Cliente | React 19 + TypeScript + Vite (sprites dibujados por código) |
 | Servidor | Node.js + NestJS + Socket.IO |
-| Audio / video | [LiveKit](https://livekit.io) (WebRTC) |
+| Audio / video | [Janus WebRTC Gateway](https://janus.conf.meetecho.com/) (VideoRoom) |
 | Base de datos | PostgreSQL |
 | Despliegue | Docker Compose (Caddy como proxy HTTPS) |
 
@@ -41,6 +41,8 @@ npm run up        # docker compose up -d --build
 
 Los demás equipos abren **`https://<IP-del-servidor>`** (la IP que muestra `npm run setup`).
 
+Opcionalmente, puedes hacer que los contenedores consulten el DNS público de Quad9: añade `DNS_SERVER=9.9.9.9` a `.env` y recrea los servicios con `npm run up`. Por defecto se conserva el resolver DNS integrado de Docker (`127.0.0.11`).
+
 Si la IP detectada no es la correcta (VPN, adaptadores virtuales): `npm run setup -- --force --ip 192.168.1.50`.
 
 ### Confiar en el certificado HTTPS
@@ -61,7 +63,7 @@ Abre en el equipo servidor (solo en la red local):
 | Puerto | Uso |
 |--------|-----|
 | 443/tcp, 80/tcp | Aplicación (HTTPS) |
-| 7881/tcp, 7882/udp | Medios de LiveKit (audio/video) |
+| 20000–20100/udp | Medios WebRTC de Janus (audio/video) |
 
 PostgreSQL **no** se publica fuera de Docker.
 
@@ -75,11 +77,11 @@ Los datos quedan en el volumen `pgdata`. Para borrarlos: `docker compose down -v
 
 ## Desarrollo (sin Docker para la app)
 
-Necesitas un PostgreSQL accesible y, opcionalmente, un LiveKit para voz.
+Necesitas un PostgreSQL accesible. Janus WebRTC Gateway forma parte del despliegue Docker.
 
 ```bash
 npm install
-cp .env.example .env        # ajusta DATABASE_URL, JWT_SECRET, claves de LiveKit
+cp .env.example .env        # ajusta DATABASE_URL y JWT_SECRET
 npm run dev:server          # http://localhost:3000 (API + Socket.IO)
 npm run dev:web             # http://localhost:5173 (proxy a :3000)
 npm test                    # shared + server + web
@@ -94,8 +96,12 @@ npm run build
 | `PORT` | Puerto HTTP | `3000` |
 | `DATABASE_URL` | Conexión PostgreSQL | `postgresql://localhost:5432/office` |
 | `JWT_SECRET` | Secreto de sesiones (**obligatorio** en producción) | aleatorio en desarrollo |
-| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | Credenciales de LiveKit; sin ellas la voz se desactiva | vacío |
-| `LIVEKIT_PUBLIC_URL` | URL `wss://` de LiveKit que usa el navegador | `wss://<host>/livekit` |
+| `JANUS_PUBLIC_URL` | URL WebSocket de Janus que usa el navegador | `wss://<host>/janus` en Docker |
+| `JANUS_ROOM_SECRET` | Secreto para derivar identificadores y PIN de salas de Janus | `JWT_SECRET` |
+| `JANUS_API_URL` | API HTTP interna de Janus usada por el servidor para crear salas | — (sin él, modo legado sin autenticación) |
+| `JANUS_AUTH_SECRET` | Secreto HMAC que Janus exige para aceptar peticiones (`token_auth`) | — |
+| `JANUS_ADMIN_KEY` | `admin_key` de VideoRoom: solo el servidor puede crear salas | — |
+| `JANUS_TOKEN_TTL` | Validez de los tokens de Janus, en segundos | `86400` (24 h) |
 | `IDLE_MS` | Inactividad antes de marcar "inactivo" | `300000` |
 | `PET_TICK_MS` | Intervalo de movimiento de mascotas | `700` |
 | `TRUST_PROXY` | `true` detrás de un proxy | `false` |
@@ -114,13 +120,14 @@ npm run build
 
 - **No pide cámara/micrófono o dice "contexto no seguro"**: entra por `https://<IP>` y confía en la CA (ver arriba). `http://` solo funciona con `localhost`.
 - **Se ve a la gente pero no hay audio/video**: revisa el firewall (7881/tcp y 7882/udp) y que `LAN_IP` sea la IP correcta (`npm run setup -- --force --ip …`).
-- **Docker Desktop (Windows/macOS) y UDP**: Docker corre en una máquina virtual; si el audio no llega pero la conexión TCP sí funciona, LiveKit usará 7881/tcp como respaldo (más latencia). En Linux puedes usar `network_mode: host` para el servicio `livekit`.
+- **No hay audio/video**: comprueba que el firewall permita el rango UDP 20000–20100 y que `LAN_IP` sea la IP correcta. Janus anuncia esa dirección para ICE.
 - **La IP cambió** (DHCP): reserva una IP fija en el router o ejecuta `npm run setup -- --ip <nueva>` y `npm run up`.
 - **Puerto 80/443 ocupado**: detén el programa que los usa o cambia los puertos en `docker-compose.yml`.
 
 ## Seguridad y límites conocidos
 
 - Contraseñas con scrypt, sesiones JWT, límite de intentos de inicio de sesión y cuerpos JSON limitados.
+- Janus exige un **token HMAC** en cada petición (`token_auth`) y el **`admin_key`** de VideoRoom: los clientes no pueden crear ni destruir salas, solo el servidor. El navegador recibe un token de vida limitada y el PIN de la sala.
 - Los secretos se generan aleatoriamente en `.env` (no lo subas a un repositorio).
-- La proximidad de voz la decide el servidor (evento `audible`), pero el cliente es quien se suscribe a las pistas: un cliente modificado podría suscribirse a más participantes de su espacio de trabajo. Es aceptable en una LAN de confianza; para endurecerlo habría que gestionar las suscripciones desde el servidor con la API de LiveKit.
+- La proximidad de voz la decide el servidor (evento `audible`), pero el cliente es quien se suscribe a las pistas: un cliente modificado podría suscribirse a más participantes de su espacio de trabajo. Es aceptable en una LAN de confianza.
 - Esta versión reemplaza la anterior en SQLite (carpeta `legacy/`); los datos antiguos no se migran automáticamente.

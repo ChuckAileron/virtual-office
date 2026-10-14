@@ -6,9 +6,9 @@ function Tile({ tile }: { tile: DockTile }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    tile.track.attach(el);
-    return () => { tile.track.detach(el); };
-  }, [tile.track]);
+    el.srcObject = tile.stream;
+    return () => { el.srcObject = null; };
+  }, [tile.stream]);
 
   const expand = (): void => {
     const el = ref.current;

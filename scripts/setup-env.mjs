@@ -28,10 +28,19 @@ function lanCandidates() {
 
 const rand = (n) => randomBytes(n).toString('hex');
 
+const SECRETS = () => ({ JANUS_AUTH_SECRET: rand(32), JANUS_ADMIN_KEY: rand(16) });
+
 if (existsSync(envPath) && !force) {
+  const raw = readFileSync(envPath, 'utf8');
   const current = Object.fromEntries(
-    readFileSync(envPath, 'utf8').split(/\r?\n/).filter((l) => l.includes('=') && !l.startsWith('#')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
+    raw.split(/\r?\n/).filter((l) => l.includes('=') && !l.startsWith('#')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
   );
+  // Completamos los secretos que falten en un .env generado por una versión anterior.
+  const missing = Object.entries(SECRETS()).filter(([key]) => !current[key]);
+  if (missing.length) {
+    writeFileSync(envPath, `${raw.replace(/\s*$/, '')}\n${missing.map(([key, value]) => `${key}=${value}`).join('\n')}\n`);
+    console.log(`.env completado con ${missing.map(([key]) => key).join(' y ')}.`);
+  }
   if (!ipArg || ipArg === current.LAN_IP) {
     console.log(`.env ya existe (LAN_IP=${current.LAN_IP}). Usa --force para regenerarlo o --ip <IP> para cambiar la IP.`);
     process.exit(0);
@@ -56,8 +65,9 @@ writeFileSync(
     `LAN_IP=${ip}`,
     `POSTGRES_PASSWORD=${rand(16)}`,
     `JWT_SECRET=${rand(32)}`,
-    `LIVEKIT_API_KEY=API${rand(6)}`,
-    `LIVEKIT_API_SECRET=${rand(32)}`,
+    `JANUS_ROOM_SECRET=${rand(32)}`,
+    `JANUS_AUTH_SECRET=${rand(32)}`,
+    `JANUS_ADMIN_KEY=${rand(16)}`,
     '',
   ].join('\n'),
 );

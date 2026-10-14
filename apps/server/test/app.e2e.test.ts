@@ -26,7 +26,7 @@ const sockets: Socket[] = [];
 const uploadsDir = mkdtempSync(path.join(os.tmpdir(), 'vo-floor-images-'));
 
 beforeAll(async () => {
-  const config = { ...loadConfig({ JWT_SECRET: 'test-secret', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecret-devsecret-devsecret-12', LIVEKIT_PUBLIC_URL: 'wss://x/livekit', PET_TICK_MS: '100000' }), uploadsDir };
+  const config = { ...loadConfig({ JWT_SECRET: 'test-secret', JANUS_ROOM_SECRET: 'test-room-secret', JANUS_PUBLIC_URL: 'wss://x/janus', PET_TICK_MS: '100000' }), uploadsDir };
   const { Pool } = newDb().adapters.createPg();
   const mod = await Test.createTestingModule({ imports: [AppModule.register(config)] })
     .overrideProvider(DB).useValue(new Pool())
@@ -151,8 +151,12 @@ describe('Socket.IO', () => {
 
     const tok = await new Promise<any>((res) => a.emit('voice_token', res));
     expect(tok.ok).toBe(true);
-    expect(tok.url).toBe('wss://x/livekit');
-    expect(tok.token.split('.')).toHaveLength(3);
+    expect(tok.url).toBe('wss://x/janus');
+    expect(tok.room).toEqual(expect.any(Number));
+    expect(tok.pin).toMatch(/^[a-f0-9]{24}$/);
+    expect(tok.identity).toBe(wa.you);
+    // Sin JANUS_API_URL no hay modo completo: no se firma token para Janus.
+    expect(tok.token).toBeUndefined();
 
     const chat = once<any>(b, 'chat');
     a.emit('chat', { text: 'hola <b>' });
