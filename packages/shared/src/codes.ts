@@ -13,12 +13,16 @@ export const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/;
 export const PASSWORD_MIN = 6;
 export const PASSWORD_MAX = 100;
 
-export function validateCredentials(username: unknown, password: unknown): string | null {
-  if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
-    return 'El usuario debe tener 3-16 caracteres (letras, números o guion bajo)';
-  }
+export function validatePassword(password: unknown): string | null {
   if (typeof password !== 'string' || password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
     return `La contraseña debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`;
   }
   return null;
+}
+
+export function validateCredentials(username: unknown, password: unknown): string | null {
+  if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
+    return 'El usuario debe tener 3-16 caracteres (letras, números o guion bajo)';
+  }
+  return validatePassword(password);
 }

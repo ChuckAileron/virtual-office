@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { GAME } from '@vo/shared';
+import { GAME, canConvene, type Role } from '@vo/shared';
 import type { GameSession } from '../game/session';
 import { BuildPanel } from './BuildPanel';
 import { VideoDock } from './VideoDock';
@@ -10,6 +10,7 @@ function Hud({ session }: { session: GameSession }) {
   const st = session.state;
   if (!st) return null;
   const { room } = st;
+  const me = st.players.get(st.you);
 
   const copy = (): void => {
     void navigator.clipboard?.writeText(room.code).then(() => {
@@ -40,6 +41,11 @@ function Hud({ session }: { session: GameSession }) {
       {v.active && <button id="camBtn" className={v.cam ? 'on' : ''} title="Activar la cámara para quienes estén en tu recinto o cerca" onClick={() => void session.voice.toggleCamera()}>📷 Cámara</button>}
       {v.active && <button id="screenBtn" className={v.screen ? 'on' : ''} title="Proyectar tu pantalla completa" onClick={() => void session.voice.toggleScreen()}>🖥 Proyectar</button>}
       <button id="buildBtn" className={session.build.open ? 'on' : ''} title="Personalizar el espacio de trabajo con objetos de oficina" onClick={() => session.build.toggle()}>🛠 Decorar</button>
+      {me && canConvene(me.role) && (
+        <button id="conveneBtn" title="Llevar a todos a la sala de reuniones" onClick={() => session.convene()}>📣 Convocar</button>
+      )}
+      <AdminControl session={session} />
+      <AlarmControl session={session} />
       <button id="leaveBtn" onClick={() => session.leave()}>Salir</button>
       <div id="voiceStatus">{status}</div>
     </div>
@@ -54,7 +60,7 @@ function PlayersList({ session }: { session: GameSession }) {
       <strong>Conectados ({st.players.size})</strong>
       {[...st.players.values()].map((p) => (
         <div key={p.id} style={{ opacity: p.idle ? 0.6 : 1 }}>
-          {p.idle ? '🟡 ' : '🟢 '}{p.name}{p.id === st.you ? ' (tú)' : ''}{p.idle ? ' · inactivo' : ''}{p.voice ? ' 🎙' : ''}
+          {p.idle ? '🟡 ' : '🟢 '}{p.name}{p.id === st.you ? ' (tú)' : ''}{p.role === 'admin' ? ' 🛡' : p.role === 'boss' ? ' 👑' : ''}{p.idle ? ' · inactivo' : ''}{p.voice ? ' 🎙' : ''}
         </div>
       ))}
     </aside>
@@ -90,6 +96,108 @@ function Chat({ session }: { session: GameSession }) {
   );
 }
 
+function AlarmControl({ session }: { session: GameSession }) {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState('');
+  const close = (): void => { setOpen(false); setMessage(''); };
+  const confirm = (e: FormEvent): void => {
+    e.preventDefault();
+    session.sendAlarm(message);
+    close();
+  };
+  return (
+    <>
+      <button id="alarmBtn" title="Avisar a todos con una alarma de emergencia" onClick={() => setOpen(true)}>🚨 Alarma</button>
+      {open && (
+        <div id="alarmModal" role="dialog" aria-modal="true" aria-labelledby="alarmTitle" onKeyDown={(e) => { if (e.key === 'Escape') close(); }}>
+          <form className="alarmCard" onSubmit={confirm}>
+            <h3 id="alarmTitle">🚨 Alarma de emergencia</h3>
+            <p>Todos en el espacio de trabajo escucharán un aviso durante 30 segundos. Úsala solo si necesitas llamar la atención de inmediato.</p>
+            <label id="alarmMessageField">Mensaje (opcional)
+              <input id="alarmMessage" maxLength={GAME.ALARM_MESSAGE_MAX} autoComplete="off" placeholder="Ej. Reunión urgente en la oficina 2" value={message} onChange={(e) => setMessage(e.target.value)} autoFocus />
+            </label>
+            <div className="alarmActions">
+              <button type="button" id="alarmCancel" onClick={close}>Cancelar</button>
+              <button type="submit" id="alarmConfirm" className="danger">Activar alarma</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+
+function AlarmBanner({ session }: { session: GameSession }) {
+  const a = useSyncExternalStore(session.alarm.subscribe, session.alarm.getSnapshot);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!a.active) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [a.active]);
+  if (!a.active || !a.endsAt) return null;
+  const left = Math.max(0, Math.ceil((a.endsAt - now) / 1000));
+  return (
+    <div id="alarmBanner" role="alert">
+      <span>🚨 <b>{a.name ?? 'Alguien'}</b> activó una alarma de emergencia{left > 0 ? ` · ${left}s` : ''}</span>
+      {a.message ? <div id="alarmBannerMsg">{a.message}</div> : null}
+    </div>
+  );
+}
+
+function AdminControl({ session }: { session: GameSession }) {
+  const [open, setOpen] = useState(false);
+  const [users, setUsers] = useState<Array<{ username: string; role: Role }>>([]);
+  const [busy, setBusy] = useState(false);
+  const me = session.me();
+  const isAdmin = me?.role === 'admin';
+
+  const load = (): void => {
+    setBusy(true);
+    void session.listUsers().then((list) => { setUsers(list); setBusy(false); });
+  };
+  const openPanel = (): void => { setOpen(true); load(); };
+  const toggle = (username: string, role: Role): void => {
+    const next: Role = role === 'boss' ? 'member' : 'boss';
+    session.assignRole(username, next);
+    setUsers((list) => list.map((u) => (u.username === username ? { ...u, role: next } : u)));
+  };
+
+  if (!isAdmin) return null;
+  return (
+    <>
+      <button id="adminBtn" title="Administrar quién es jefe" onClick={openPanel}>⚙️ Admin</button>
+      {open && (
+        <div id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminTitle" onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}>
+          <div className="alarmCard">
+            <h3 id="adminTitle">⚙️ Administración de roles</h3>
+            <p>Asigna o quita el rol de <b>jefe</b>. El jefe puede convocar a todo el equipo a la sala de reuniones.</p>
+            <ul id="adminUsers">
+              {users.map((u) => (
+                <li key={u.username} className="adminUser">
+                  <span>{u.username}{u.role === 'admin' ? ' 🛡' : u.role === 'boss' ? ' 👑' : ''}</span>
+                  {u.role !== 'admin' && (
+                    <button type="button" className={u.role === 'boss' ? 'on' : ''} onClick={() => toggle(u.username, u.role)}>
+                      {u.role === 'boss' ? 'Quitar jefe' : 'Hacer jefe'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {busy && <p className="hint">Cargando…</p>}
+            <div className="alarmActions"><button type="button" onClick={() => setOpen(false)}>Cerrar</button></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Toast({ session }: { session: GameSession }) {
+  useSyncExternalStore(session.subscribe, session.getVersion);
+  return session.toast ? <div id="toast" role="status">{session.toast}</div> : null;
+}
+
 export function GameScreen({ session }: { session: GameSession }) {
   useSyncExternalStore(session.subscribe, session.getVersion);
   const voice = useSyncExternalStore(session.voice.subscribe, session.voice.getSnapshot);
@@ -106,6 +214,8 @@ export function GameScreen({ session }: { session: GameSession }) {
       {session.state && (
         <>
           <Hud session={session} />
+          <AlarmBanner session={session} />
+          <Toast session={session} />
           <PlayersList session={session} />
           <VideoDock tiles={voice.tiles} />
           <BuildPanel session={session} />

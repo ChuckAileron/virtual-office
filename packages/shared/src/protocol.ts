@@ -1,7 +1,7 @@
 import type { AccessoryCatalog } from './accessories';
 import type { AppearancePatch } from './appearance';
 import type { CatalogEntry } from './objects';
-import type { Accessories, Appearance, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Tiles } from './types';
+import type { Accessories, Appearance, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Role, Tiles } from './types';
 
 /** Constantes de juego compartidas. */
 export const GAME = {
@@ -10,6 +10,12 @@ export const GAME = {
   CHAT_RADIUS: 6,
   IDLE_MS: 5 * 60 * 1000,
   CHAT_MAX: 200,
+  /** Duración del sonido de la alarma de emergencia que escuchan todos. */
+  ALARM_DURATION_MS: 30_000,
+  /** Tiempo mínimo entre alarmas de un mismo jugador. */
+  ALARM_COOLDOWN_MS: 5_000,
+  /** Longitud máxima del mensaje opcional de la alarma. */
+  ALARM_MESSAGE_MAX: 140,
 } as const;
 
 // ---------- REST ----------
@@ -17,6 +23,7 @@ export const GAME = {
 export interface UserInfo {
   username: string;
   appearance: Appearance;
+  role: Role;
 }
 export interface SessionResponse {
   token: string;
@@ -49,6 +56,7 @@ export interface PlayerView {
   dir: Dir;
   voice: boolean;
   idle: boolean;
+  role: Role;
 }
 
 export interface WelcomePayload {
@@ -98,6 +106,14 @@ export interface ClientToServerEvents {
   voice: (p: { on: boolean }) => void;
   /** Pide los datos de conexión a Janus para el espacio de trabajo actual. */
   voice_token: (ack: (r: VoiceTokenResult) => void) => void;
+  /** Dispara una alarma de emergencia para todos los presentes, con mensaje opcional. */
+  alarm: (p: { message: string }) => void;
+  /** Convoca a todos los presentes a la sala de reuniones (solo jefe o administrador). */
+  convene: () => void;
+  /** Lista las cuentas con su rol (solo administrador). */
+  list_users: (ack: (r: { users: Array<{ username: string; role: Role }> }) => void) => void;
+  /** Asigna o quita el rol de jefe (solo administrador). */
+  assign_role: (p: { username: string; role: Role }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -126,4 +142,12 @@ export interface ServerToClientEvents {
   audible: (p: { ids: string[] }) => void;
   /** Otra sesión del mismo usuario tomó esta conexión. */
   replaced: () => void;
+  /** Alarma de emergencia disparada por alguien de la sala; todos deben reproducirla. */
+  alarm: (p: { from: string; name: string; message: string; durationMs: number }) => void;
+  /** Alguien convocó a todos a la sala de reuniones; `seats` indica la posición destino de cada jugador. */
+  convened: (p: { by: string; seats: Array<{ id: string; x: number; y: number; dir: Dir }> }) => void;
+  /** Aviso breve para el usuario (por ejemplo, una acción no permitida). */
+  notice: (p: { text: string }) => void;
+  /** Un administrador cambió el rol de este jugador. */
+  role: (p: { id: string; role: Role }) => void;
 }

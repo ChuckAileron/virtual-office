@@ -49,6 +49,9 @@ export const register = (username: string, password: string, appearance: Appeara
 export const login = (username: string, password: string) =>
   request<SessionResponse>('/api/login', { method: 'POST', body: { username, password } });
 
+export const changePassword = (currentPassword: string, newPassword: string, token: string) =>
+  request<{ ok: true }>('/api/password', { method: 'POST', body: { currentPassword, newPassword }, token });
+
 export const getLayoutSize = (o: FloorOptions) =>
   request<FloorSize>(`/api/layout?${new URLSearchParams({
     offices: String(o.offices), conference: String(o.conference), boss: String(o.boss), kitchen: String(o.kitchen), rest: String(o.rest),

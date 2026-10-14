@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { CODE_ALPHABET, Appearance, FloorDecoration, FloorSize, Layout, Office, OfficeFloorStyle, Pet, PlacedObject, Tiles } from '@vo/shared';
+import { CODE_ALPHABET, Appearance, FloorDecoration, FloorSize, Layout, Office, OfficeFloorStyle, Pet, PlacedObject, Role, Tiles, asRole } from '@vo/shared';
 
 export const DB = Symbol('DB');
 
@@ -12,6 +12,7 @@ export interface UserRow {
   username: string;
   password: string;
   appearance: Appearance;
+  role: Role;
 }
 
 export interface RoomRow {
@@ -28,7 +29,8 @@ const SCHEMA = [
     username TEXT NOT NULL,
     username_lower TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    appearance TEXT NOT NULL
+    appearance TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member'
   )`,
   `CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY,
@@ -80,17 +82,18 @@ export class Repository {
   async migrate(): Promise<void> {
     for (const sql of SCHEMA) await this.db.query(sql);
     await this.db.query("ALTER TABLE objects ADD COLUMN IF NOT EXISTS orientation TEXT NOT NULL DEFAULT 'front'");
+    await this.db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member'");
   }
 
   /** Devuelve null si el nombre ya existe (sin distinguir mayúsculas). */
-  async createUser(username: string, password: string, appearance: Appearance): Promise<UserRow | null> {
+  async createUser(username: string, password: string, appearance: Appearance, role: Role = 'member'): Promise<UserRow | null> {
     if (await this.getUserByName(username)) return null;
     try {
       const r = await this.db.query(
-        'INSERT INTO users (username, username_lower, password, appearance) VALUES ($1, $2, $3, $4) RETURNING id',
-        [username, username.toLowerCase(), password, JSON.stringify(appearance)],
+        'INSERT INTO users (username, username_lower, password, appearance, role) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [username, username.toLowerCase(), password, JSON.stringify(appearance), role],
       );
-      return { id: Number(r.rows[0].id), username, password, appearance };
+      return { id: Number(r.rows[0].id), username, password, appearance, role };
     } catch (e) {
       if ((e as { code?: string }).code === '23505') return null;
       throw e;
@@ -109,6 +112,20 @@ export class Repository {
 
   async updateAppearance(id: number, appearance: Appearance): Promise<void> {
     await this.db.query('UPDATE users SET appearance = $1 WHERE id = $2', [JSON.stringify(appearance), id]);
+  }
+
+  async updatePassword(id: number, password: string): Promise<void> {
+    await this.db.query('UPDATE users SET password = $1 WHERE id = $2', [password, id]);
+  }
+
+  async updateRole(id: number, role: Role): Promise<void> {
+    await this.db.query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
+  }
+
+  /** Cuentas con su rol, ordenadas por usuario; usada por el panel de administración. */
+  async listUsers(): Promise<Array<{ username: string; role: Role }>> {
+    const r = await this.db.query('SELECT username, role FROM users ORDER BY username_lower');
+    return r.rows.map((row) => ({ username: row.username, role: asRole(row.role) }));
   }
 
   async saveRoom(name: string, layout: Layout): Promise<string> {
@@ -223,6 +240,12 @@ export class Repository {
   }
 
   private toUser(row: any): UserRow {
-    return { id: Number(row.id), username: row.username, password: row.password, appearance: JSON.parse(row.appearance) };
+    return {
+      id: Number(row.id),
+      username: row.username,
+      password: row.password,
+      appearance: JSON.parse(row.appearance),
+      role: asRole(row.role),
+    };
   }
 }

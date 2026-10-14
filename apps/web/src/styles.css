@@ -30,6 +30,7 @@ button.primary { background: #4f8cff; font-weight: 600; }
 .buttons button { flex: 0 0 auto; }
 .hint { color: #9fb0e0; font-size: 13px; min-height: 18px; }
 .hint.warn { color: #ffcf6b; }
+.hint.ok { color: #7fe0a0; }
 .error { color: #ff7b7b; text-align: center; min-height: 20px; }
 .rooms { list-style: none; margin: 0; padding: 0; }
 .rooms li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #3a4262; }
@@ -118,3 +119,27 @@ button.primary { background: #4f8cff; font-weight: 600; }
 .lookRow > span { flex: 0 0 92px; font-size: 12px; color: #cfd6ff; }
 .lookRow .accColors { flex: 1; }
 #buildMsg.err { color: #ff8a8a; }
+#alarmBtn { background: #7a2230; }
+#alarmBtn:hover { background: #9b2c3d; }
+button.danger { background: #c0364d; font-weight: 600; }
+button.danger:hover { background: #d84a61; }
+#alarmModal { position: fixed; inset: 0; z-index: 50; background: #000b; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#adminModal { position: fixed; inset: 0; z-index: 50; background: #000b; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.alarmCard { width: min(420px, 100%); background: #2a3048; border-radius: 12px; padding: 18px; box-shadow: 0 12px 40px #000a; }
+.alarmCard h3 { margin: 0 0 8px; }
+.alarmCard p { margin: 0 0 12px; color: #cfd6ff; font-size: 13px; }
+#alarmMessageField { margin-bottom: 14px; }
+.alarmActions { display: flex; justify-content: flex-end; gap: 8px; }
+#alarmBanner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 40; max-width: min(560px, calc(100% - 24px)); background: #7a2230e6; border: 1px solid #ff97a8; border-radius: 10px; padding: 8px 14px; text-align: center; font-size: 14px; box-shadow: 0 6px 24px #0008; animation: alarmIn 0.25s ease-out; }
+#alarmBannerMsg { margin-top: 4px; font-size: 13px; color: #ffe4e8; }
+@keyframes alarmIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+#conveneBtn { background: #4c3a86; }
+#conveneBtn:hover { background: #5f4aa6; }
+#adminBtn { background: #3a4a6b; }
+#adminBtn:hover { background: #4a5c82; }
+#adminUsers { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow: auto; }
+.adminUser { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #1e2438; border-radius: 6px; padding: 6px 10px; font-size: 14px; }
+.adminUser button { font-size: 12px; padding: 3px 8px; }
+.adminUser button.on { background: #7a5a22; }
+#toast { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 45; max-width: min(560px, calc(100% - 24px)); background: #1e2438ee; border: 1px solid #4a5a8a; border-radius: 8px; padding: 8px 16px; font-size: 14px; box-shadow: 0 6px 24px #0008; animation: alarmIn 0.2s ease-out; }

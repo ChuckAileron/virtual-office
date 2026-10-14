@@ -8,7 +8,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { newDb } from 'pg-mem';
 import { io as connect, type Socket } from 'socket.io-client';
 import request from 'supertest';
-import { normalizeCode } from '@vo/shared';
+import { GAME, normalizeCode } from '@vo/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { loadConfig } from '../src/config';
@@ -46,6 +46,9 @@ afterAll(async () => {
 const register = async (username: string) =>
   (await request(base).post('/api/register').send({ username, password: 'secret1', appearance: look })).body.token as string;
 
+const loginUser = async (username: string, password: string) =>
+  (await request(base).post('/api/login').send({ username, password })).body as { token: string; user: { username: string; role: string } };
+
 const open = (token: string) => {
   const s = connect(base, { auth: { token }, transports: ['websocket'], forceNew: true });
   sockets.push(s);
@@ -61,6 +64,23 @@ describe('REST', () => {
     expect((await request(base).post('/api/register').send({ username: 'ana_1', password: 'secret1', appearance: look })).status).toBe(409);
     expect((await request(base).post('/api/login').send({ username: 'Ana_1', password: 'secret1' })).status).toBe(200);
     expect((await request(base).post('/api/login').send({ username: 'Ana_1', password: 'nope' })).status).toBe(401);
+  });
+
+  it('crea el administrador por defecto con rol admin', async () => {
+    const res = await request(base).post('/api/login').send({ username: 'admin', password: 'admin' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe('admin');
+    expect(res.body.user.role).toBe('admin');
+  });
+
+  it('permite cambiar la contraseña verificando la actual', async () => {
+    const token = await register('pass_user');
+    expect((await request(base).post('/api/password').set('Authorization', `Bearer ${token}`).send({ currentPassword: 'nope', newPassword: 'secret2' })).status).toBe(401);
+    expect((await request(base).post('/api/password').set('Authorization', `Bearer ${token}`).send({ currentPassword: 'secret1', newPassword: '123' })).status).toBe(400);
+    expect((await request(base).post('/api/password').send({ currentPassword: 'secret1', newPassword: 'secret2' })).status).toBe(401);
+    expect((await request(base).post('/api/password').set('Authorization', `Bearer ${token}`).send({ currentPassword: 'secret1', newPassword: 'secret2' })).status).toBe(200);
+    expect((await request(base).post('/api/login').send({ username: 'pass_user', password: 'secret2' })).status).toBe(200);
+    expect((await request(base).post('/api/login').send({ username: 'pass_user', password: 'secret1' })).status).toBe(401);
   });
 
   it('crear espacio de trabajo exige sesión y la consulta es por código', async () => {
@@ -180,6 +200,103 @@ describe('Socket.IO', () => {
     const object = await repository.addObject(code, 'bookshelf', 3, 6, 'side', true);
     expect(object).toMatchObject({ type: 'bookshelf', perspective: 'side', flipped: true });
     expect(await repository.loadObjects(code)).toContainEqual(object);
+  });
+
+  it('difunde la alarma de emergencia a todos los presentes', async () => {
+    const ta = await register('alarma_a');
+    const tb = await register('alarma_b');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${ta}`).send({ name: 'Alarma', offices: 1 })).body;
+    const a = open(ta);
+    const welcomeA = once<any>(a, 'welcome');
+    a.emit('join', { code: room.code });
+    await welcomeA;
+    const b = open(tb);
+    const welcomeB = once<any>(b, 'welcome');
+    b.emit('join', { code: room.code });
+    await welcomeB;
+
+    const heardByB = once<any>(b, 'alarm');
+    const heardByA = once<any>(a, 'alarm');
+    a.emit('alarm', { message: 'Reunión urgente' });
+    const event = await heardByB;
+    expect(event).toMatchObject({ name: 'alarma_a', message: 'Reunión urgente', durationMs: GAME.ALARM_DURATION_MS });
+    expect(event.from).toEqual(expect.any(String));
+    // Quien la dispara también la escucha.
+    expect((await heardByA).from).toBe(event.from);
+  });
+
+  it('limita la frecuencia de las alarmas de un mismo jugador', async () => {
+    const t = await register('alarma_spam');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${t}`).send({ name: 'Spam', offices: 1 })).body;
+    const s = open(t);
+    const welcome = once<any>(s, 'welcome');
+    s.emit('join', { code: room.code });
+    await welcome;
+
+    let count = 0;
+    s.on('alarm', () => { count++; });
+    s.emit('alarm', { message: 'primera' });
+    s.emit('alarm', { message: 'segunda' });
+    await wait(200);
+    expect(count).toBe(1);
+  });
+
+  it('el admin asigna jefe y el jefe convoca a todos a la sala de reuniones', async () => {
+    const admin = await loginUser('admin', 'admin');
+    const ta = await register('conv_jefe');
+    const tb = await register('conv_miembro');
+
+    const adminSocket = open(admin.token);
+    await once(adminSocket, 'connect');
+    const listed = await new Promise<{ users: Array<{ username: string; role: string }> }>((res) => adminSocket.emit('list_users', res));
+    expect(listed.users).toContainEqual({ username: 'admin', role: 'admin' });
+
+    const notice = once<any>(adminSocket, 'notice');
+    adminSocket.emit('assign_role', { username: 'conv_jefe', role: 'boss' });
+    expect((await notice).text).toMatch(/jefe/i);
+
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${ta}`).send({ name: 'Reunión', offices: 2, conference: true })).body;
+    const a = open(ta);
+    const welcomeA = once<any>(a, 'welcome');
+    a.emit('join', { code: room.code });
+    const wa = await welcomeA;
+    const b = open(tb);
+    const welcomeB = once<any>(b, 'welcome');
+    b.emit('join', { code: room.code });
+    await welcomeB;
+
+    const conference = wa.room.offices.find((o: any) => o.kind === 'conference');
+    const convened = once<any>(b, 'convened');
+    a.emit('convene');
+    const event = await convened;
+    expect(event.by).toBe('conv_jefe');
+    expect(event.seats).toHaveLength(2);
+    for (const seat of event.seats) {
+      expect(seat.x).toBeGreaterThanOrEqual(conference.x);
+      expect(seat.x).toBeLessThan(conference.x + conference.w);
+      expect(seat.y).toBeGreaterThanOrEqual(conference.y);
+      expect(seat.y).toBeLessThan(conference.y + conference.h);
+    }
+  });
+
+  it('un miembro no puede convocar ni asignar roles', async () => {
+    const t = await register('conv_solo');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${t}`).send({ name: 'Sin permiso', offices: 2, conference: true })).body;
+    const s = open(t);
+    const welcome = once<any>(s, 'welcome');
+    s.emit('join', { code: room.code });
+    await welcome;
+
+    const conveneNotice = once<any>(s, 'notice');
+    s.emit('convene');
+    expect((await conveneNotice).text).toMatch(/jefe o un administrador/i);
+
+    const roleNotice = once<any>(s, 'notice');
+    s.emit('assign_role', { username: 'conv_jefe', role: 'member' });
+    expect((await roleNotice).text).toMatch(/administrador/i);
+
+    const listed = await new Promise<{ users: unknown[] }>((res) => s.emit('list_users', res));
+    expect(listed.users).toEqual([]);
   });
 
   it('un segundo inicio de sesión reemplaza al primero', async () => {

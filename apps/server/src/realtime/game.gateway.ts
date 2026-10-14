@@ -6,9 +6,9 @@ import { OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
 import type { Server } from 'socket.io';
 import {
   ACCESSORY_CATALOG, CATALOG_LIST, DIRS, FLOOR_IMAGE_URL_PATTERN, GAME, MAX_FLOOR_DECORATIONS,
-  PET_COLORS, PET_KINDS, T, floorDecorationFitsOffice, formatCode, isWalkable, officeAt, styleAllowed,
+  PET_COLORS, PET_KINDS, T, canConvene, floorDecorationFitsOffice, formatCode, isWalkable, meetingHead, meetingSeats, officeAt, styleAllowed,
   sanitizeAccessories, sanitizeAppearancePatch, stepPet, supportsSideView, validatePet, validatePlacement, rebuildBlocked,
-  type ClientToServerEvents, type PlayerView, type ServerToClientEvents,
+  type ClientToServerEvents, type Dir, type PlayerView, type Seat, type ServerToClientEvents,
 } from '@vo/shared';
 import { AuthService } from '../auth/auth.service';
 import { APP_CONFIG, AppConfig } from '../config';
@@ -26,7 +26,7 @@ const cleanText = (s: unknown, max: number) =>
   String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 
 const view = (p: Player): PlayerView => ({
-  id: p.id, name: p.name, appearance: p.appearance, x: p.x, y: p.y, dir: p.dir, voice: p.voice, idle: p.idle,
+  id: p.id, name: p.name, appearance: p.appearance, x: p.x, y: p.y, dir: p.dir, voice: p.voice, idle: p.idle, role: p.role,
 });
 
 @WebSocketGateway()
@@ -80,8 +80,8 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       const now = Date.now();
       player = {
         id: randomBytes(4).toString('hex'), userId: user.id, socket, room, name: user.username,
-        appearance: user.appearance, x: spawn.x, y: spawn.y, dir: 'down', voice: false, idle: false,
-        lastMove: 0, lastActive: now, lastEdit: 0, lastLook: 0, audible: new Set(),
+        appearance: user.appearance, role: user.role, x: spawn.x, y: spawn.y, dir: 'down', voice: false, idle: false,
+        lastMove: 0, lastActive: now, lastEdit: 0, lastLook: 0, lastAlarm: 0, audible: new Set(),
       };
       room.players.set(player.id, player);
       this.online.set(user.id, player);
@@ -240,6 +240,82 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       p.voice = data?.on === true;
       this.server.to(this.channel(room)).emit('voice', { id: p.id, on: p.voice });
     }));
+
+    socket.on('alarm', guard((p, room, data) => {
+      const now = Date.now();
+      if (now - p.lastAlarm < GAME.ALARM_COOLDOWN_MS) return;
+      p.lastAlarm = now;
+      const message = cleanText(data?.message, GAME.ALARM_MESSAGE_MAX);
+      this.server.to(this.channel(room)).emit('alarm', {
+        from: p.id, name: p.name, message, durationMs: GAME.ALARM_DURATION_MS,
+      });
+    }));
+
+    // Convoca a todos los presentes a la sala de reuniones (solo jefe o admin).
+    socket.on('convene', guard((p, room) => {
+      if (!canConvene(p.role)) {
+        return void socket.emit('notice', { text: 'Solo el jefe o un administrador pueden convocar a la reunión' });
+      }
+      if (!room.offices.some((o) => o.kind === 'conference')) {
+        return void socket.emit('notice', { text: 'Este espacio de trabajo no tiene sala de reuniones' });
+      }
+      const players = [...room.players.values()];
+      const seats = meetingSeats(room.offices, room.tiles, room.blocked, players.length);
+      // El jefe no tiene silla (hay una por oficina): preside de pie al extremo izquierdo.
+      const head = meetingHead(room.offices, room.tiles);
+      const pool = head ? seats.filter((s) => s.x !== head.x || s.y !== head.y) : seats;
+      const moved: Array<{ id: string; x: number; y: number; dir: Dir }> = [];
+      let next = 0;
+      let headUsed = false;
+      for (const other of players) {
+        let seat: Seat | null;
+        if (other.role === 'boss' && head && !headUsed) {
+          headUsed = true;
+          seat = head;
+        } else {
+          seat = pool[next++] ?? null;
+        }
+        if (!seat) continue;
+        other.x = seat.x;
+        other.y = seat.y;
+        other.dir = seat.dir;
+        moved.push({ id: other.id, x: seat.x, y: seat.y, dir: seat.dir });
+      }
+      this.server.to(this.channel(room)).emit('convened', { by: p.name, seats: moved });
+      for (const other of players) this.pushAudible(room, other);
+    }));
+
+    // Gestión de roles: son acciones de cuenta, no requieren estar dentro de una sala.
+    socket.on('list_users', async (ack) => {
+      if (typeof ack !== 'function') return;
+      const actor = socket.data.user as UserRow;
+      if (actor.role !== 'admin') return ack({ users: [] });
+      ack({ users: await this.repo.listUsers() });
+    });
+
+    socket.on('assign_role', async (data) => {
+      const actor = socket.data.user as UserRow;
+      if (actor.role !== 'admin') {
+        return void socket.emit('notice', { text: 'Solo un administrador puede asignar el rol de jefe' });
+      }
+      const role = data?.role;
+      if (role !== 'boss' && role !== 'member') {
+        return void socket.emit('notice', { text: 'Rol inválido' });
+      }
+      try {
+        const updated = await this.auth.assignRole(String(data?.username ?? ''), role);
+        const online = this.online.get(updated.id);
+        if (online) {
+          online.role = role;
+          online.socket.emit('role', { id: online.id, role });
+        }
+        socket.emit('notice', {
+          text: role === 'boss' ? `${updated.username} ahora es jefe` : `${updated.username} ya no es jefe`,
+        });
+      } catch (e) {
+        socket.emit('notice', { text: e instanceof Error ? e.message : 'No se pudo asignar el rol' });
+      }
+    });
 
     socket.on('voice_token', async (ack) => {
       if (typeof ack !== 'function') return;

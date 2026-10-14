@@ -1,4 +1,5 @@
 import type { UserInfo } from '@vo/shared';
+import { asRole } from '@vo/shared';
 
 export interface StoredSession {
   token: string;
@@ -16,7 +17,9 @@ export const MAX_SAVED_ROOMS = 20;
 export function loadSession(): StoredSession | null {
   try {
     const raw = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as Partial<StoredSession> | null;
-    return raw && typeof raw.token === 'string' && raw.user && typeof raw.user.username === 'string' ? (raw as StoredSession) : null;
+    if (!raw || typeof raw.token !== 'string' || !raw.user || typeof raw.user.username !== 'string') return null;
+    // Las sesiones guardadas antes de existir los roles no traen `role`.
+    return { token: raw.token, user: { ...raw.user, role: asRole(raw.user.role) } };
   } catch {
     return null;
   }

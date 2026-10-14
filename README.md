@@ -14,6 +14,7 @@ Oficina virtual 2D multijugador pensada para funcionar **dentro de una red local
 
 - **Espacios de trabajo por código de invitación**; el tamaño del espacio de trabajo depende de las oficinas, sala de reuniones y oficina del jefe.
 - **Cuentas de usuario** (JWT) con personaje guardado y generador aleatorio.
+- **Roles** (administrador, jefe y miembro): el admin nombra jefes y el jefe puede **convocar a todo el equipo** a la sala de reuniones.
 - **Voz y video por proximidad**: solo oyes a quien está en tu oficina o cerca. Incluye cámara y pantalla compartida.
 - **Estado activo/inactivo** tras 5 minutos sin actividad.
 - **Decoración**: objetos de oficina, mascotas y accesorios del personaje.
@@ -114,7 +115,10 @@ npm run build
 4. **Muévete** con `WASD` o las flechas.
 5. **Voz y video**: activa micrófono/cámara desde la barra inferior. Solo escuchas y ves a quienes están en tu misma oficina o cerca. Puedes compartir pantalla.
 6. **Chat**: escribe un mensaje; lo ven quienes estén cerca o en tu oficina.
-7. **Decorar**: abre *Decorar* para colocar o quitar objetos y mascotas, y cambiar los accesorios de tu personaje.
+7. **Alarma de emergencia**: pulsa *🚨 Alarma*, escribe un mensaje opcional y confirma; todos en el espacio de trabajo escucharán un aviso suave durante 30 segundos (con un tiempo mínimo entre alarmas de un mismo usuario).
+8. **Roles y administración**: la app crea una cuenta de administrador por defecto (`admin` / `admin`; cámbiala en cuanto entres, desde el lobby, en *Cambiar contraseña*). El administrador ve el botón *⚙️ Admin* para nombrar o quitar **jefes**.
+9. **Convocar a la sala de reuniones**: el **jefe** o el **administrador** pulsa *📣 Convocar* y todos los presentes van a la sala de reuniones y se sientan automáticamente (el espacio debe tener sala de reuniones).
+10. **Decorar**: abre *Decorar* para colocar o quitar objetos y mascotas, y cambiar los accesorios de tu personaje.
 
 ## Solución de problemas
 

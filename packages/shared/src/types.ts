@@ -19,6 +19,8 @@ export const T = {
 export type Tiles = number[][];
 export type RoomKind = 'office' | 'boss' | 'conference' | 'lobby' | 'kitchen' | 'rest';
 export type Dir = 'up' | 'down' | 'left' | 'right';
+/** Rol del usuario: administrador del sistema, jefe (puede convocar) o miembro. */
+export type Role = 'admin' | 'boss' | 'member';
 export const DIRS: Record<Dir, readonly [number, number]> = {
   up: [0, -1],
   down: [0, 1],

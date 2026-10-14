@@ -6,7 +6,7 @@ describe('persistencia local del lobby', () => {
 
   it('conserva el espacio de trabajo al cerrar sesión y volver a cargar', () => {
     const room = { code: 'ABCD-2345', name: 'Espacio de prueba' };
-    saveSession({ token: 'test-token', user: { username: 'test', appearance: {
+    saveSession({ token: 'test-token', user: { username: 'test', role: 'member', appearance: {
       gender: 'male', style: 0, skin: '#ffdcbc', hair: '#0b0b0b', shirt: '#3b82f6', pants: '#334155',
       acc: { hat: null, hatColor: '#ef4444', glasses: null, extra: null, extraColor: '#ef4444' },
     } } });

@@ -1,4 +1,6 @@
 export * from './types';
+export * from './roles';
+export * from './meeting';
 export * from './layout';
 export * from './objects';
 export * from './floor-decorations';

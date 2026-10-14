@@ -14,6 +14,7 @@ const session: StoredSession = {
   token: 'test-token',
   user: {
     username: 'test-user',
+    role: 'member',
     appearance: {
       gender: 'male', style: 0, skin: '#ffdcbc', hair: '#0b0b0b', shirt: '#3b82f6', pants: '#334155',
       acc: { hat: null, hatColor: '#ef4444', glasses: null, extra: null, extraColor: '#ef4444' },

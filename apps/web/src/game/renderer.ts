@@ -325,6 +325,23 @@ export function render(
   const list = [...state.players.values()].sort((a, b) => a.ry - b.ry);
   for (const p of list) drawPlayer(ctx, p, now);
   for (const p of list) drawLabel(ctx, state, p, now);
+
+  // Anillos de teletransporte de la convocatoria a la sala de reuniones.
+  for (const fx of state.effects) {
+    const t = (now - fx.start) / (fx.until - fx.start);
+    if (t < 0 || t > 1) continue;
+    const cx = (fx.x + 0.5) * TILE, cy = (fx.y + 0.5) * TILE;
+    ctx.save();
+    ctx.globalAlpha = (1 - t) * 0.85;
+    ctx.strokeStyle = '#7c5cff';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, TILE * (0.3 + t * 1.1), 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = (1 - t) * 0.4;
+    ctx.strokeStyle = '#c4b5fd';
+    ctx.beginPath(); ctx.arc(cx, cy, TILE * (0.15 + t * 0.7), 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
   drawOverlay(ctx, state, build, petHex);
   ctx.restore();
 }

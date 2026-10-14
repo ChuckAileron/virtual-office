@@ -47,6 +47,8 @@ services:
         condition: service_healthy
       janus:
         condition: service_started
+    ports:
+      - "3000:3000"
     volumes:
       - floor_images:/app/data/floor-images
     environment:

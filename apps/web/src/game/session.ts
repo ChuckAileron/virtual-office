@@ -1,8 +1,9 @@
-import type { Accessories, AppearancePatch, FloorDecoration, OfficeFloorStyle, PlayerView } from '@vo/shared';
+import type { Accessories, AppearancePatch, FloorDecoration, OfficeFloorStyle, PlayerView, Role } from '@vo/shared';
 import { GAME } from '@vo/shared';
 import { getConfig, uploadFloorImage } from '../net/api';
 import { createSocket, type GameSocket } from '../net/socket';
 import { VoiceController } from '../net/voice';
+import { AlarmController } from './alarm';
 import { BuildController } from './build';
 import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES } from './constants';
 import { mouseToTile } from './coords';
@@ -26,8 +27,10 @@ export class GameSession {
   chat: ChatLine[] = [];
   where = '';
   version = 0;
+  toast = '';
   readonly build: BuildController;
   readonly voice: VoiceController;
+  readonly alarm: AlarmController;
   readonly socket: GameSocket;
 
   private listeners = new Set<() => void>();
@@ -39,6 +42,7 @@ export class GameSession {
   private chatId = 0;
   private keys = new KeyStack();
   private closed = false;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private detachInput: (() => void) | null = null;
 
   constructor(private readonly token: string, code: string, private readonly onClose: (reason: string) => void) {
@@ -63,6 +67,7 @@ export class GameSession {
       },
       onSpeaking: () => this.reportActivity(),
     });
+    this.alarm = new AlarmController();
     this.socket = createSocket(token);
     this.wire(code);
   }
@@ -132,6 +137,30 @@ export class GameSession {
     });
     s.on('build_error', ({ error }) => this.build.error(error));
     s.on('audible', ({ ids }) => this.voice.setAudible(ids));
+    s.on('alarm', (p) => this.alarm.trigger(p));
+    s.on('convened', ({ by, seats }) => {
+      const st = this.state;
+      if (st) {
+        const now = performance.now();
+        for (const seat of seats) {
+          const p = st.players.get(seat.id);
+          if (!p) continue;
+          st.effects.push({ x: p.rx, y: p.ry, start: now, until: now + 600 });
+          p.x = seat.x;
+          p.y = seat.y;
+          p.dir = seat.dir;
+          p.rx = seat.x;
+          p.ry = seat.y;
+          st.effects.push({ x: seat.x, y: seat.y, start: now, until: now + 600 });
+        }
+      }
+      this.notify(`📣 ${by} convocó a todos a la sala de reuniones`);
+    });
+    s.on('notice', ({ text }) => this.notify(text));
+    s.on('role', ({ id, role }) => {
+      const p = this.state?.players.get(id);
+      if (p) { p.role = role; this.emit(); }
+    });
     s.on('chat', ({ id, name, text }) => {
       const p = this.state?.players.get(id);
       if (p) { p.bubble = chatBubble(text); p.bubbleUntil = performance.now() + BUBBLE_MS; }
@@ -167,6 +196,38 @@ export class GameSession {
   sendChat(text: string): void {
     const t = text.trim();
     if (t && this.socket.connected) this.socket.emit('chat', { text: t.slice(0, GAME.CHAT_MAX) });
+  }
+
+  /** Dispara una alarma de emergencia para todos; el mensaje es opcional. */
+  sendAlarm(message: string): void {
+    if (!this.socket.connected) return;
+    this.socket.emit('alarm', { message: message.trim().slice(0, GAME.ALARM_MESSAGE_MAX) });
+  }
+
+  /** Convoca a todos los presentes a la sala de reuniones (solo jefe o administrador). */
+  convene(): void {
+    if (this.socket.connected) this.socket.emit('convene');
+  }
+
+  /** Lista las cuentas con su rol (solo administrador). */
+  listUsers(): Promise<Array<{ username: string; role: Role }>> {
+    return new Promise((resolve) => {
+      if (!this.socket.connected) { resolve([]); return; }
+      this.socket.emit('list_users', (r) => resolve(r.users));
+    });
+  }
+
+  /** Asigna o quita el rol de jefe a una cuenta (solo administrador). */
+  assignRole(username: string, role: Role): void {
+    if (this.socket.connected) this.socket.emit('assign_role', { username, role });
+  }
+
+  /** Muestra un aviso breve en pantalla durante unos segundos. */
+  notify(text: string): void {
+    this.toast = text;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { this.toast = ''; this.emit(); }, 5000);
+    this.emit();
   }
 
   me(): PlayerView | undefined {
@@ -275,6 +336,7 @@ export class GameSession {
       this.lastMove = now;
     }
     interpolate(st, dt);
+    if (st.effects.length) st.effects = st.effects.filter((e) => e.until > now);
     if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
@@ -290,8 +352,10 @@ export class GameSession {
   private close(reason: string): void {
     if (this.closed) return;
     this.closed = true;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
     this.detachInput?.();
     this.voice.dispose();
+    this.alarm.dispose();
     this.build.close();
     this.socket.removeAllListeners();
     this.socket.disconnect();

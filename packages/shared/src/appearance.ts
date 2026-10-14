@@ -2,6 +2,17 @@ import { sanitizeAccessories } from './accessories';
 import { Appearance } from './types';
 
 const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Apariencia por defecto, usada al crear cuentas sin personaje personalizado. */
+export const DEFAULT_APPEARANCE: Appearance = {
+  gender: 'male',
+  style: 0,
+  skin: '#f1c27d',
+  hair: '#2b2b33',
+  shirt: '#4f8cff',
+  pants: '#1f2937',
+  acc: sanitizeAccessories({}),
+};
 export const STYLES = 4;
 /** Peinado de calvo, reservado a los personajes masculinos. */
 export const BALD_STYLE = 3;

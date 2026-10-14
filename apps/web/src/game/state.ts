@@ -14,6 +14,14 @@ export interface ClientPet extends Pet {
   ry: number;
 }
 
+/** Efecto visual temporal de teletransporte en una casilla (convocatoria a la reunión). */
+export interface TeleportEffect {
+  x: number;
+  y: number;
+  start: number;
+  until: number;
+}
+
 export interface GameState {
   you: string;
   room: WelcomePayload['room'];
@@ -28,6 +36,7 @@ export interface GameState {
   petColors: WelcomePayload['petColors'];
   accessories: WelcomePayload['accessories'];
   cam: { x: number; y: number };
+  effects: TeleportEffect[];
 }
 
 export const PLAYER_RATE = 14;
@@ -51,6 +60,7 @@ export function createState(w: WelcomePayload): GameState {
     petColors: w.petColors ?? [],
     accessories: w.accessories,
     cam: { x: 0, y: 0 },
+    effects: [],
   };
   for (const p of w.pets ?? []) state.pets.set(p.id, makePet(p));
   for (const p of w.players) state.players.set(p.id, makePlayer(p));

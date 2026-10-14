@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io';
 import type {
-  Appearance, ClientToServerEvents, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Point, ServerToClientEvents, Tiles,
+  Appearance, ClientToServerEvents, Dir, FloorDecoration, FloorSize, Office, OfficeFloorStyle, PlacedObject, Pet, Point, Role, ServerToClientEvents, Tiles,
 } from '@vo/shared';
 
 export type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -12,6 +12,7 @@ export interface Player extends Point {
   room: RoomRuntime | null;
   name: string;
   appearance: Appearance;
+  role: Role;
   dir: Dir;
   voice: boolean;
   idle: boolean;
@@ -19,6 +20,8 @@ export interface Player extends Point {
   lastActive: number;
   lastEdit: number;
   lastLook: number;
+  /** Marca de tiempo de la última alarma para limitar el abuso. */
+  lastAlarm: number;
   /** Ids de los jugadores con los que puede hablar ahora mismo. */
   audible: Set<string>;
 }

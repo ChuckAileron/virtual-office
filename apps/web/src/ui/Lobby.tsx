@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { FloorSize, PublicRoom, SessionResponse } from '@vo/shared';
-import { ApiRequestError, createRoom, getLayoutSize, getRoom, type FloorOptions } from '../net/api';
+import { ApiRequestError, changePassword, createRoom, getLayoutSize, getRoom, type FloorOptions } from '../net/api';
 import { AuthCard } from './AuthCard';
 import { FloorList } from './FloorList';
 import { loadRooms, removeRoom, upsertRoom, type StoredSession } from './storage';
@@ -14,6 +14,47 @@ interface Props {
   notice: string;
   onSession(session: StoredSession | null): void;
   onEnter(token: string, code: string): void;
+}
+
+function PasswordCard({ session }: { session: StoredSession }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const submit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const current = (form.elements.namedItem('current') as HTMLInputElement).value;
+    const next = (form.elements.namedItem('next') as HTMLInputElement).value;
+    const confirm = (form.elements.namedItem('confirm') as HTMLInputElement).value;
+    setError('');
+    setMessage('');
+    if (next !== confirm) { setError('Las contraseñas nuevas no coinciden'); return; }
+    setBusy(true);
+    try {
+      await changePassword(current, next, session.token);
+      setMessage('Contraseña actualizada');
+      form.reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error inesperado');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2>Cambiar contraseña</h2>
+      <form id="passwordForm" noValidate onSubmit={submit}>
+        <label>Contraseña actual <input name="current" type="password" maxLength={100} autoComplete="current-password" /></label>
+        <label>Nueva contraseña <input name="next" type="password" maxLength={100} autoComplete="new-password" /></label>
+        <label>Repite la nueva <input name="confirm" type="password" maxLength={100} autoComplete="new-password" /></label>
+        <button type="submit" className="primary" disabled={busy}>Guardar</button>
+        {message && <p className="hint ok">{message}</p>}
+        {error && <p className="error">{error}</p>}
+      </form>
+    </section>
+  );
 }
 
 export function Lobby({ session, notice, onSession, onEnter }: Props) {
@@ -159,6 +200,8 @@ export function Lobby({ session, notice, onSession, onEnter }: Props) {
             onEnter={(code) => void joinByCode(code)}
             onForget={forget}
           />
+
+          <PasswordCard session={session} />
         </div>
       )}
 
