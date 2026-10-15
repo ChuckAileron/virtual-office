@@ -52,6 +52,30 @@ describe('validatePlacement', () => {
     expect(validatePlacement(mkRoom(layout.tiles, [{ type: 'plant', id: 1, x: px, y: py }]), 'sofa', px, py)).toBeTruthy();
   });
 
+  it('los sofás de descanso bloquean solo el respaldo y dejan celdas de asiento transitables', () => {
+    const lounge = generateLayout({ offices: 20, conference: true, kitchen: true, rest: true });
+    const rest = lounge.offices.find((entry) => entry.kind === 'rest')!;
+    const leftX = rest.x + 2, rightX = rest.x + rest.w - 4, sideY = rest.y + 5;
+    const topX = rest.x + 5, topY = rest.y + 2;
+    const objects: PlacedObject[] = [
+      { id: 1, type: 'sofa_vertical', x: leftX, y: sideY, flipped: true },
+      { id: 2, type: 'sofa_vertical', x: rightX, y: sideY },
+      { id: 3, type: 'sofa_wide', x: topX, y: topY },
+    ];
+    const room = mkRoom(lounge.tiles, objects, lounge.offices);
+
+    for (let y = sideY; y < sideY + 4; y++) {
+      expect(room.blocked.has(`${leftX},${y}`)).toBe(true);
+      expect(room.blocked.has(`${leftX + 1},${y}`)).toBe(false);
+      expect(room.blocked.has(`${rightX + 1},${y}`)).toBe(true);
+      expect(room.blocked.has(`${rightX},${y}`)).toBe(false);
+    }
+    for (let x = topX; x < topX + 5; x++) {
+      expect(room.blocked.has(`${x},${topY}`)).toBe(true);
+      expect(room.blocked.has(`${x},${topY + 1}`)).toBe(false);
+    }
+  });
+
   it('la TV gigante solo se coloca en la sala de reuniones', () => {
     const withConference = generateLayout({ offices: 2, conference: true });
     const conference = withConference.offices.find((o) => o.kind === 'conference')!;

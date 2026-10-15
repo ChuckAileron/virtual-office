@@ -56,11 +56,30 @@ export function footprint(def: { w: number; h: number }, x: number, y: number): 
   return cells;
 }
 
-export function rebuildBlocked(room: Pick<RoomState, 'objects' | 'blocked'>): void {
+/** Sofa seats remain walkable; only the row/column that forms the backrest blocks movement. */
+function collisionFootprint(
+  room: Pick<RoomState, 'offices'>,
+  object: { type: string; x: number; y: number; flipped?: boolean },
+  def: ObjectDef,
+): Array<[number, number]> {
+  const zone = officeAt(room.offices ?? [], object.x, object.y);
+  if (zone?.kind === 'rest' && object.type === 'sofa_wide') {
+    return footprint(def, object.x, object.y).filter(([, y]) => y === object.y);
+  }
+  if (zone?.kind === 'rest' && object.type === 'sofa_vertical') {
+    const backrestX = object.x + (object.flipped || object.x === zone.x + 2 ? 0 : def.w - 1);
+    return footprint(def, object.x, object.y).filter(([x]) => x === backrestX);
+  }
+  return footprint(def, object.x, object.y);
+}
+
+export function rebuildBlocked(room: Pick<RoomState, 'objects' | 'blocked' | 'offices'>): void {
   room.blocked.clear();
   for (const o of room.objects) {
     const def = defOf(o.type);
-    if (def?.solid) for (const [cx, cy] of footprint(def, o.x, o.y)) room.blocked.add(`${cx},${cy}`);
+    if (def?.solid) {
+      for (const [cx, cy] of collisionFootprint(room, o, def)) room.blocked.add(`${cx},${cy}`);
+    }
   }
 }
 
@@ -129,7 +148,7 @@ export function validatePlacement(room: RoomState, type: unknown, x: unknown, y:
   if (def.solid) {
     for (const p of room.players.values()) if (inCells(p.x, p.y)) return 'Hay alguien en ese lugar';
     for (const p of room.pets ?? []) if (inCells(p.x, p.y)) return 'Hay una mascota en ese lugar';
-    if (!keepsFloorConnected(room, cells)) return 'Eso bloquearía el paso';
+    if (!keepsFloorConnected(room, collisionFootprint(room, { type: String(type), x: px, y: py }, def))) return 'Eso bloquearía el paso';
   }
   return null;
 }
