@@ -103,5 +103,6 @@ describe('validatePlacement', () => {
   it('catálogo consistente', () => {
     expect(CATALOG_LIST.length).toBeGreaterThanOrEqual(12);
     for (const d of CATALOG_LIST) expect(d.name && d.w >= 1 && d.h >= 1 && CATALOG[d.type]).toBeTruthy();
+    expect(CATALOG.rug).toMatchObject({ w: 3, h: 2, solid: false, layer: 'floor' });
   });
 });

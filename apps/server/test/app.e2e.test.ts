@@ -8,11 +8,12 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { newDb } from 'pg-mem';
 import { io as connect, type Socket } from 'socket.io-client';
 import request from 'supertest';
-import { GAME, normalizeCode } from '@vo/shared';
+import { GAME, T, normalizeCode, officeAt } from '@vo/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { loadConfig } from '../src/config';
 import { DB, Repository } from '../src/db/repository';
+import { RoomsService } from '../src/rooms/rooms.service';
 import { configureApp } from '../src/main';
 
 const look = {
@@ -89,8 +90,65 @@ describe('REST', () => {
     const r = await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({ name: 'Espacio 1', offices: 2 });
     expect(r.status).toBe(201);
     expect((await request(base).get(`/api/rooms/${r.body.code}`)).body.name).toBe('Espacio 1');
+    const objects = await app.get(Repository).loadObjects(normalizeCode(r.body.code));
+    expect(objects.some((object) => object.type === 'bookshelf_tall')).toBe(true);
+    const runtime = app.get(RoomsService).find(r.body.code)!;
+    expect(objects.filter((object) => object.type === 'plant' && ['office', 'boss'].includes(officeAt(runtime.offices, object.x, object.y)?.kind ?? '')).length).toBe(0);
     expect((await request(base).get('/api/rooms/ZZZZ-ZZZZ')).status).toBe(404);
     expect((await request(base).get('/api/health')).body.ok).toBe(true);
+  });
+
+  it('no siembra plantas en oficinas; solo en las zonas comunes de la referencia', async () => {
+    const token = await register('qa_sinplantas');
+    const response = await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({
+      name: 'Interiores de referencia', offices: 2, conference: true, kitchen: true, rest: true,
+    });
+    expect(response.status).toBe(201);
+    const room = app.get(RoomsService).find(response.body.code);
+    if (!room) throw new Error('El espacio creado no está en RoomsService');
+    const plants = room.objects.filter((object) => object.type === 'plant');
+    expect(plants.length).toBeGreaterThan(0);
+    for (const plant of plants) {
+      const zone = officeAt(room.offices, plant.x, plant.y);
+      expect(['conference', 'rest', 'lobby']).toContain(zone?.kind);
+    }
+  });
+
+  it('siembra la distribución TOBE del mapa completo en los anclajes de la referencia', async () => {
+    const token = await register('qa_mapa_tobe');
+    const response = await request(base).post('/api/rooms').set('Authorization', `Bearer ${token}`).send({
+      name: 'Mapa TOBE', offices: 20, conference: true, kitchen: true, rest: true,
+    });
+    expect(response.status).toBe(201);
+    const room = app.get(RoomsService).find(response.body.code);
+    if (!room) throw new Error('El espacio creado no está en RoomsService');
+    expect(room.size).toMatchObject({ width: 67, height: 70, offices: 20 });
+
+    const objectAt = (type: string, x: number, y: number) => room.objects.find((o) => o.type === type && o.x === x && o.y === y);
+    const office1 = room.offices.find((o) => o.name === 'Oficina 1')!;
+    const office2 = room.offices.find((o) => o.name === 'Oficina 2')!;
+    const office3 = room.offices.find((o) => o.name === 'Oficina 3')!;
+    const meeting = room.offices.find((o) => o.kind === 'conference')!;
+    const rest = room.offices.find((o) => o.kind === 'rest')!;
+    const lobby = room.offices.find((o) => o.kind === 'lobby')!;
+
+    expect(objectAt('bookshelf_tall', office1.x + office1.w - 3, office1.y + 2)).toBeTruthy();
+    expect(objectAt('bookshelf_tall', office2.x + 1, office2.y + 2)).toBeTruthy();
+    expect(objectAt('filing', office1.x + 1, office1.y + office1.h - 3)).toBeTruthy();
+    expect(objectAt('cooler', office3.x + 1, office3.y + office3.h - 3)).toBeTruthy();
+    expect(room.objects.some((o) => o.type === 'rug' && ['office', 'boss'].includes(officeAt(room.offices, o.x, o.y)?.kind ?? ''))).toBe(false);
+
+    const roomTiles = (zone: typeof meeting, tile: number) => room.tiles.slice(zone.y, zone.y + zone.h)
+      .reduce((count, row) => count + row.slice(zone.x, zone.x + zone.w).filter((value) => value === tile).length, 0);
+    expect(roomTiles(meeting, T.TABLE)).toBe(36);
+    expect(roomTiles(meeting, T.CHAIR)).toBe(20);
+    expect(room.objects.filter((o) => o.type === 'rug' && officeAt(room.offices, o.x, o.y)?.kind === 'conference')).toHaveLength(15);
+    expect(objectAt('sofa_wide', rest.x + 5, rest.y + 2)).toBeTruthy();
+    expect(objectAt('sofa_vertical', rest.x + 2, rest.y + 5)).toBeTruthy();
+    expect(objectAt('sofa_vertical', rest.x + rest.w - 4, rest.y + 5)).toBeTruthy();
+    expect(room.tiles[lobby.y + 3][lobby.x + 2]).toBe(T.COUNTER);
+    expect(objectAt('sofa_blue', lobby.x + lobby.w - 11, lobby.y + 2)).toBeTruthy();
+    expect(objectAt('sofa_vertical_blue', lobby.x + lobby.w - 14, lobby.y + 3)).toBeTruthy();
   });
 
   it('sube una imagen, la coloca solo dentro de una oficina y la entrega a quienes entran', async () => {

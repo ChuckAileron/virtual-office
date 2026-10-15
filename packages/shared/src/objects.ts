@@ -15,19 +15,25 @@ interface ObjectDef {
 export const CATALOG: Record<string, ObjectDef> = {
   plant: { name: 'Planta grande', w: 1, h: 1, solid: true },
   bookshelf: { name: 'Librero', w: 2, h: 1, solid: true },
+  bookshelf_tall: { name: 'Librero alto', w: 2, h: 2, solid: true },
   filing: { name: 'Archivador', w: 1, h: 1, solid: true },
   sofa: { name: 'Sofá', w: 2, h: 1, solid: true },
+  sofa_wide: { name: 'Sofá ancho', w: 5, h: 2, solid: true },
+  sofa_blue: { name: 'Sofá azul', w: 5, h: 2, solid: true },
+  sofa_vertical: { name: 'Sofá lateral', w: 2, h: 4, solid: true },
+  sofa_vertical_blue: { name: 'Sofá lateral azul', w: 2, h: 4, solid: true },
   armchair: { name: 'Sillón', w: 1, h: 1, solid: true },
   coffee: { name: 'Cafetera', w: 1, h: 1, solid: true },
   cooler: { name: 'Dispensador de agua', w: 1, h: 1, solid: true },
   printer: { name: 'Impresora', w: 1, h: 1, solid: true },
   whiteboard: { name: 'Pizarra', w: 2, h: 1, solid: true },
-  fridge: { name: 'Refrigerador', w: 1, h: 1, solid: true },
+  fridge: { name: 'Refrigerador', w: 1, h: 2, solid: true },
   vending: { name: 'Máquina expendedora', w: 1, h: 1, solid: true },
   bin: { name: 'Papelera', w: 1, h: 1, solid: true },
+  bench: { name: 'Banco de espera', w: 4, h: 1, solid: true },
   lamp: { name: 'Lámpara de pie', w: 1, h: 1, solid: true },
   giant_tv: { name: 'TV gigante', w: 3, h: 2, solid: true, roomKind: 'conference' },
-  rug: { name: 'Alfombra', w: 2, h: 2, solid: false, layer: 'floor' },
+  rug: { name: 'Alfombra', w: 3, h: 2, solid: false, layer: 'floor' },
 };
 
 export interface CatalogEntry extends ObjectDef {
@@ -36,7 +42,7 @@ export interface CatalogEntry extends ObjectDef {
 
 export const CATALOG_LIST: CatalogEntry[] = Object.entries(CATALOG).map(([type, d]) => ({ type, ...d }));
 export const MAX_OBJECTS = 300;
-export const SIDE_VIEW_OBJECTS = new Set(['bookshelf', 'filing', 'sofa', 'armchair', 'giant_tv']);
+export const SIDE_VIEW_OBJECTS = new Set(['bookshelf', 'bookshelf_tall', 'filing', 'sofa', 'sofa_wide', 'sofa_blue', 'armchair', 'giant_tv']);
 const PLACEABLE = new Set<number>([T.FLOOR, T.OFFICE, T.BOSS, T.CONF, T.LOBBY, T.KITCHEN, T.REST, T.SOFA]);
 
 export const supportsSideView = (type: string): boolean => SIDE_VIEW_OBJECTS.has(type);
@@ -105,6 +111,10 @@ export function validatePlacement(room: RoomState, type: unknown, x: unknown, y:
     const t = room.tiles[cy]?.[cx];
     if (t === undefined) return 'Aquí no se puede colocar (solo sobre el piso libre)';
     if (def.roomKind && officeAt(room.offices ?? [], cx, cy)?.kind !== def.roomKind) return 'Este objeto solo se puede colocar en la sala de reuniones';
+    if (def.layer === 'floor') {
+      if (t === T.WALL || t === T.DOOR) return 'Aquí no se puede colocar (solo sobre el piso libre)';
+      continue;
+    }
     if (!PLACEABLE.has(t)) return 'Aquí no se puede colocar (solo sobre el piso libre)';
     if (nearDoor(room.tiles, cx, cy)) return 'No bloquees las puertas';
     if (room.tiles[cy - 1]?.[cx] === T.DESK) return 'Deja libre el frente del escritorio';

@@ -5,7 +5,7 @@ import type { VoiceTokenResult } from '@vo/shared';
 export const INSECURE_CONTEXT_MSG = 'Tu navegador necesita HTTPS o localhost para usar el micrófono, la cámara y la pantalla.';
 export interface DockTile { key: string; label: string; screen: boolean; mine: boolean; stream: MediaStream }
 export interface VoiceState {
-  connecting: boolean; active: boolean; incomingMuted: boolean; cam: boolean; screen: boolean;
+  connecting: boolean; micConnecting: boolean; active: boolean; incomingMuted: boolean; cam: boolean; screen: boolean;
   level: number; listeners: number; error: string | null; tiles: DockTile[];
 }
 export interface VoiceDeps {
@@ -23,7 +23,7 @@ export function describeMediaError(err: unknown): string {
   return e?.message || 'No se pudo activar el dispositivo';
 }
 
-const INITIAL: VoiceState = { connecting: false, active: false, incomingMuted: false, cam: false, screen: false, level: 0, listeners: 0, error: null, tiles: [] };
+const INITIAL: VoiceState = { connecting: false, micConnecting: false, active: false, incomingMuted: false, cam: false, screen: false, level: 0, listeners: 0, error: null, tiles: [] };
 const PLUGIN = 'janus.plugin.videoroom';
 let janusInitialized: Promise<void> | null = null;
 let JanusClient!: typeof import('janus-gateway').default;
@@ -47,8 +47,15 @@ export class VoiceController {
   private meterTimer: ReturnType<typeof setInterval> | undefined;
   private localStream: MediaStream | null = null;
   private placeholderVideo: MediaStreamTrack | null = null;
+  private publisherVideoTrack: MediaStreamTrack | null = null;
+  private publisherAudioTrack: MediaStreamTrack | null = null;
+  private publisherVideoNegotiated = false;
+  private publisherAudioNegotiated = false;
   private localScreen: MediaStream | null = null;
   private current: { room: number; pin: string; identity: string; token?: string } | null = null;
+  private connectionPromise: Promise<void> | null = null;
+  private publisherReady = false;
+  private micStarting = false;
   private roomRetry = false;
   private audioHost: HTMLDivElement | null = null;
 
@@ -62,25 +69,55 @@ export class VoiceController {
     for (const [feed, sub] of this.subscribers) if (!this.audible.has(sub.identity)) this.dropSubscriber(feed);
     for (const publisher of this.publishers.values()) this.subscribeTo(publisher);
     this.refreshListeners();
+    if (this.audible.size && !this.publisherReady) {
+      void this.ensureConnection().catch((err) => this.set({ error: describeMediaError(err) }));
+    }
   }
 
   async enable(): Promise<void> {
-    if (this.state.active || this.state.connecting) return;
+    if (this.state.active || this.micStarting) return;
     if (!mediaSupported()) { this.set({ error: INSECURE_CONTEXT_MSG }); return; }
-    this.set({ connecting: true, error: null });
+    this.micStarting = true;
+    this.set({ micConnecting: true, error: null });
+    let stream: MediaStream | null = null;
     try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      await this.ensureConnection();
+      await this.publishAudio(stream.getAudioTracks()[0]);
+      this.set({ active: true, micConnecting: false, connecting: false });
+      this.deps.setVoiceFlag(true);
+    } catch (err) {
+      stream?.getTracks().forEach((track) => track.stop());
+      this.set({ micConnecting: false, active: false, error: describeMediaError(err) });
+    } finally {
+      this.micStarting = false;
+    }
+  }
+
+  private async ensureConnection(): Promise<void> {
+    if (this.publisherReady && this.session && this.publisher) return;
+    if (this.connectionPromise) return this.connectionPromise;
+
+    this.set({ connecting: true, error: null });
+    const operation = (async () => {
       const result = await this.deps.requestToken();
       if (!result.ok) throw new Error(result.error);
       const url = result.url ?? await this.deps.getConfigUrl() ?? defaultJanusUrl();
       this.current = { room: result.room, pin: result.pin, identity: result.identity, token: result.token };
       await initJanus();
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       await new Promise<void>((resolve, reject) => {
         this.session = new JanusClient({ server: url, ...(result.token ? { token: result.token } : {}), success: () => this.attachPublisher(resolve, reject), error: (e) => reject(new Error(String(e))) });
       });
+    })();
+    this.connectionPromise = operation;
+    try {
+      await operation;
     } catch (err) {
       this.teardown();
-      this.set({ connecting: false, active: false, error: describeMediaError(err) });
+      this.set({ connecting: false });
+      throw err;
+    } finally {
+      if (this.connectionPromise === operation) this.connectionPromise = null;
     }
   }
 
@@ -96,9 +133,8 @@ export class VoiceController {
       onmessage: (msg, jsep) => {
         const data = msg.videoroom;
         if (data === 'joined') {
-          this.set({ connecting: false, active: true });
-          this.deps.setVoiceFlag(true);
-          this.publishAudio();
+          this.publisherReady = true;
+          this.set({ connecting: false });
           (msg.publishers ?? []).forEach((p: any) => this.addPublisher(p));
           resolve();
         } else if (data === 'event') {
@@ -127,20 +163,51 @@ export class VoiceController {
     }).catch((err) => this.set({ error: describeMediaError(err) }));
   }
 
-  private publishAudio(): void {
-    const handle = this.publisher;
-    const audio = this.localStream?.getAudioTracks()[0];
-    if (!handle || !audio) return;
+  private makePlaceholderVideo(): MediaStreamTrack {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 2;
-    const placeholder = canvas.captureStream(1).getVideoTracks()[0];
-    placeholder.enabled = false;
-    this.placeholderVideo = placeholder;
-    handle.createOffer({
-      tracks: [{ type: 'audio', capture: audio, recv: false }, { type: 'video', capture: placeholder, recv: false }],
-      success: (jsep) => handle.send({ message: { request: 'configure', audio: true, video: true }, jsep }),
-      error: (e) => this.set({ error: describeMediaError(e) }),
-    });
+    const track = canvas.captureStream(1).getVideoTracks()[0];
+    track.enabled = false;
+    this.placeholderVideo = track;
+    return track;
+  }
+
+  private async publishAudio(audio: MediaStreamTrack): Promise<void> {
+    const handle = this.publisher;
+    if (!handle) throw new Error('No hay conexión de voz');
+    const stream = this.localStream ??= new MediaStream();
+
+    if (this.publisherAudioNegotiated) {
+      await new Promise<void>((resolve, reject) => handle.replaceTracks({
+        tracks: [{ type: 'audio', capture: audio, replace: true, recv: false }],
+        success: () => {
+          handle.unmuteAudio();
+          handle.send({ message: { request: 'configure', audio: true, video: !!this.publisherVideoTrack } });
+          resolve();
+        },
+        error: reject,
+      }));
+    } else {
+      const tracks: JanusJS.TrackOption[] = [{ type: 'audio', capture: audio, add: true, recv: false }];
+      if (!this.publisherVideoNegotiated) {
+        const placeholder = this.makePlaceholderVideo();
+        tracks.push({ type: 'video', capture: placeholder, add: true, recv: false });
+        this.publisherVideoTrack = placeholder;
+        this.publisherVideoNegotiated = true;
+      }
+      await new Promise<void>((resolve, reject) => handle.createOffer({
+        tracks,
+        success: (jsep) => {
+          this.publisherAudioNegotiated = true;
+          handle.send({ message: { request: 'configure', audio: true, video: !!this.publisherVideoTrack }, jsep });
+          resolve();
+        },
+        error: reject,
+      }));
+    }
+
+    this.publisherAudioTrack = audio;
+    stream.addTrack(audio);
     this.startMeter(audio);
   }
 
@@ -168,7 +235,7 @@ export class VoiceController {
         if (on) {
           entry.stream.addTrack(track);
           if (track.kind === 'audio') {
-            const audio = document.createElement('audio'); audio.autoplay = true; audio.srcObject = new MediaStream([track]);
+            const audio = document.createElement('audio'); audio.autoplay = true; audio.muted = this.state.incomingMuted; audio.srcObject = new MediaStream([track]);
             (this.audioHost ??= document.createElement('div')).hidden = true;
             if (!this.audioHost.isConnected) document.body.append(this.audioHost);
             this.audioHost.append(audio);
@@ -213,37 +280,93 @@ export class VoiceController {
   private async replaceVideo(track: MediaStreamTrack | null, screen: boolean): Promise<void> {
     const handle = this.publisher;
     if (!handle) return;
-    const old = this.localStream?.getVideoTracks()[0];
-    if (track && this.localStream) {
-      if (old) this.localStream.removeTrack(old);
-      this.localStream.addTrack(track);
-    }
-    const tracks: JanusJS.TrackOption[] = track
-      ? [{ type: 'video', capture: track, ...(old ? { replace: true } : { add: true }), recv: false }]
-      : old ? [{ type: 'video', capture: false, remove: true, recv: false }] : [];
-    if (!tracks.length) return;
-    handle.replaceTracks({ tracks, success: (jsep: any) => {
-      if (jsep) handle.send({ message: { request: 'configure', audio: true, video: !!track }, jsep });
-      if (old && old !== track) { this.localStream?.removeTrack(old); old.stop(); }
+    const previous = this.publisherVideoTrack;
+    const next = track ?? (this.placeholderVideo ?? this.makePlaceholderVideo());
+    try {
+      if (!this.publisherVideoNegotiated) {
+        if (!track) return;
+        await new Promise<void>((resolve, reject) => handle.createOffer({
+          tracks: [{ type: 'video', capture: track, add: true, recv: false }],
+          success: (jsep) => {
+            this.publisherVideoNegotiated = true;
+            handle.send({ message: { request: 'configure', audio: !!this.publisherAudioTrack, video: true }, jsep });
+            resolve();
+          },
+          error: reject,
+        }));
+      } else {
+        await new Promise<void>((resolve, reject) => handle.replaceTracks({
+          tracks: [{ type: 'video', capture: next, replace: true, recv: false }],
+          success: () => {
+            handle.send({ message: { request: 'configure', audio: !!this.publisherAudioTrack, video: !!track } });
+            resolve();
+          },
+          error: reject,
+        }));
+      }
+
+      if (previous && previous !== this.placeholderVideo) {
+        this.localStream?.removeTrack(previous);
+        if (previous !== track) previous.stop();
+      }
+      if (track) {
+        this.localStream ??= new MediaStream();
+        if (!this.localStream.getTracks().includes(track)) this.localStream.addTrack(track);
+      }
+      this.publisherVideoTrack = next;
       this.localScreen = screen && track ? new MediaStream([track]) : null;
       this.updateRemoteTiles();
-    }, error: (e) => this.set({ error: describeMediaError(e) }) });
+    } catch (err) {
+      track?.stop();
+      this.set({ error: describeMediaError(err) });
+    }
   }
 
   async toggleCamera(): Promise<void> {
+    let track: MediaStreamTrack | undefined;
     try {
       if (this.state.cam) await this.replaceVideo(null, false);
-      else { const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: 24 } }); await this.replaceVideo(stream.getVideoTracks()[0], false); }
-    } catch (err) { this.set({ error: describeMediaError(err) }); }
+      else {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: 24 } });
+        track = stream.getVideoTracks()[0];
+        await this.ensureConnection();
+        await this.replaceVideo(track, false);
+      }
+    } catch (err) { track?.stop(); this.set({ error: describeMediaError(err) }); }
   }
   async toggleScreen(): Promise<void> {
+    let track: MediaStreamTrack | undefined;
     try {
       if (this.state.screen) await this.replaceVideo(null, false);
-      else { const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 } }); const track = stream.getVideoTracks()[0]; track.onended = () => { void this.replaceVideo(null, false); }; await this.replaceVideo(track, true); }
-    } catch (err) { this.set({ error: describeMediaError(err) }); }
+      else {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 } });
+        track = stream.getVideoTracks()[0];
+        await this.ensureConnection();
+        track.onended = () => { void this.replaceVideo(null, false); };
+        await this.replaceVideo(track, true);
+      }
+    } catch (err) { track?.stop(); this.set({ error: describeMediaError(err) }); }
   }
   toggleIncomingMute(): void { const muted = !this.state.incomingMuted; this.audioHost?.querySelectorAll('audio').forEach((a) => { a.muted = muted; }); this.set({ incomingMuted: muted }); }
-  disable(): void { this.teardown(); this.deps.setVoiceFlag(false); this.set({ ...INITIAL }); }
+  disable(): void {
+    const audio = this.publisherAudioTrack;
+    if (audio && this.publisher) {
+      this.publisher.replaceTracks({
+        tracks: [{ type: 'audio', capture: false, replace: true, recv: false }],
+        success: () => this.publisher?.send({ message: { request: 'configure', audio: false, video: !!this.publisherVideoTrack } }),
+        error: (err) => this.set({ error: describeMediaError(err) }),
+      });
+      this.localStream?.removeTrack(audio);
+      audio.stop();
+      this.publisherAudioTrack = null;
+    }
+    clearInterval(this.meterTimer); this.meterTimer = undefined;
+    void this.meterCtx?.close().catch(() => {}); this.meterCtx = null;
+    this.deps.setLevel('me', 0);
+    this.deps.setVoiceFlag(false);
+    this.set({ active: false, micConnecting: false, level: 0 });
+    this.updateRemoteTiles();
+  }
   dispose(): void { this.teardown(); this.listeners.clear(); }
 
   private startMeter(track: MediaStreamTrack): void {
@@ -268,9 +391,16 @@ export class VoiceController {
     this.audioHost?.remove(); this.audioHost = null;
     this.localStream?.getTracks().forEach((t) => t.stop()); this.localStream = null;
     this.placeholderVideo?.stop(); this.placeholderVideo = null;
+    this.publisherVideoTrack = null;
+    this.publisherAudioTrack = null;
+    this.publisherVideoNegotiated = false;
+    this.publisherAudioNegotiated = false;
     this.localScreen?.getTracks().forEach((t) => t.stop()); this.localScreen = null;
     this.current = null;
     this.roomRetry = false;
+    this.publisherReady = false;
+    this.connectionPromise = null;
+    this.micStarting = false;
     this.publishers.clear();
   }
 }

@@ -20,26 +20,26 @@ function Hud({ session }: { session: GameSession }) {
   };
 
   const status = v.error
-    ?? (v.connecting ? 'Conectando voz…'
-      : v.active ? (v.listeners ? `🔊 Hablando con ${v.listeners} persona${v.listeners === 1 ? '' : 's'}` : 'Voz activa: nadie cerca para escucharte')
-        : '');
+    ?? (v.connecting ? 'Conectando llamada…'
+      : v.active ? (v.listeners ? `🔊 Micrófono activo · ${v.listeners} persona${v.listeners === 1 ? '' : 's'} cerca` : 'Micrófono activo · nadie cerca')
+        : v.listeners ? `🔊 Recibiendo audio de ${v.listeners} persona${v.listeners === 1 ? '' : 's'}` : '');
 
   return (
     <div id="hud">
       <strong id="hudRoom">{room.name} ({room.size.width}×{room.size.height})</strong>
       <button id="codeBtn" title="Copiar código de invitación" onClick={copy}>{copied ? '✔ Copiado' : `🔑 ${room.code}`}</button>
       <span id="hudWhere">{session.where}</span>
-      <button id="micBtn" className={v.active ? 'on' : ''} disabled={v.connecting} title="Hablar por micrófono con quienes estén en tu mismo recinto" onClick={() => (v.active ? session.voice.disable() : void session.voice.enable())}>
-        {v.active ? '🎙 Voz activada' : '🎙 Activar voz'}
+      <button id="micBtn" className={v.active ? 'on' : ''} disabled={v.micConnecting} title="Activar o desactivar tu micrófono; la recepción de llamadas es automática" onClick={() => (v.active ? session.voice.disable() : void session.voice.enable())}>
+        {v.micConnecting ? '🎙 Activando…' : v.active ? '🎙 Micrófono activado' : '🎙 Activar micrófono'}
       </button>
       {v.active && (
         <span id="micMeter" title="Volumen del micrófono" style={{ display: 'inline-block' }}>
           <i id="micLevel" className={v.level >= 2 ? 'hot' : ''} style={{ width: `${(v.level / 20) * 100}%` }} />
         </span>
       )}
-      {v.active && <button id="muteBtn" className={v.incomingMuted ? 'on' : ''} onClick={() => session.voice.toggleIncomingMute()}>{v.incomingMuted ? '🔇 Silenciado' : '🔈 Silenciar'}</button>}
-      {v.active && <button id="camBtn" className={v.cam ? 'on' : ''} title="Activar la cámara para quienes estén en tu recinto o cerca" onClick={() => void session.voice.toggleCamera()}>📷 Cámara</button>}
-      {v.active && <button id="screenBtn" className={v.screen ? 'on' : ''} title="Proyectar tu pantalla completa" onClick={() => void session.voice.toggleScreen()}>🖥 Proyectar</button>}
+      <button id="muteBtn" className={v.incomingMuted ? 'on' : ''} onClick={() => session.voice.toggleIncomingMute()}>{v.incomingMuted ? '🔇 Audio silenciado' : '🔈 Silenciar audio'}</button>
+      <button id="camBtn" className={v.cam ? 'on' : ''} title="Activar o desactivar tu cámara sin activar el micrófono" onClick={() => void session.voice.toggleCamera()}>📷 Cámara</button>
+      <button id="screenBtn" className={v.screen ? 'on' : ''} title="Compartir tu pantalla sin activar el micrófono" onClick={() => void session.voice.toggleScreen()}>🖥 Proyectar</button>
       <button id="buildBtn" className={session.build.open ? 'on' : ''} title="Personalizar el espacio de trabajo con objetos de oficina" onClick={() => session.build.toggle()}>🛠 Decorar</button>
       {me && canConvene(me.role) && (
         <button id="conveneBtn" title="Llevar a todos a la sala de reuniones" onClick={() => session.convene()}>📣 Convocar</button>

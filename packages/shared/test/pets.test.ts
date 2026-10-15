@@ -61,7 +61,7 @@ describe('stepPet', () => {
       for (let i = 0; i < 3000; i++) {
         stepPet(r, pet);
         expect(officeAt(layout.offices, pet.x, pet.y)).toBe(o);
-        expect([T.OFFICE, T.BOSS, T.CONF, T.LOBBY]).toContain(layout.tiles[pet.y][pet.x]);
+        expect([T.OFFICE, T.BOSS, T.CONF, T.LOBBY, T.SOFA]).toContain(layout.tiles[pet.y][pet.x]);
         visited.add(`${pet.x},${pet.y}`);
       }
       expect(visited.size).toBeGreaterThan(5);

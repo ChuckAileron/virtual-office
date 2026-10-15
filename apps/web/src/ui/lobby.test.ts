@@ -52,6 +52,24 @@ describe('primer paso: inicio de sesión', () => {
   });
 });
 
+describe('configuración inicial', () => {
+  it('ofrece por defecto el mapa completo TOBE de 20 oficinas y sus tres zonas comunes', async () => {
+    root = createRoot(container);
+    await act(async () => root.render(createElement(Lobby, {
+      session,
+      notice: '',
+      onSession: () => {},
+      onEnter: () => {},
+    })));
+
+    expect(container.querySelector<HTMLInputElement>('input[name="offices"]')?.value).toBe('20');
+    for (const name of ['conference', 'kitchen', 'rest']) {
+      expect(container.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.checked).toBe(true);
+    }
+    expect(container.querySelector<HTMLInputElement>('input[name="boss"]')?.checked).toBe(false);
+  });
+});
+
 describe('lista Mis espacios de trabajo', () => {
   it.each(['crear', 'entrar por código'])('guarda un espacio de trabajo antes de salir del lobby al %s', async (flow) => {
     function AppHarness() {

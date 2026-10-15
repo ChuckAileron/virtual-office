@@ -14,8 +14,13 @@ export function canPlaceObject(s: Placement, def: CatalogEntry, x: number, y: nu
   const has = (px: number, py: number) => mine.some(([cx, cy]) => cx === px && cy === py);
   for (const [cx, cy] of mine) {
     const t = tiles[cy]?.[cx];
-    if (t === undefined || !PLACEABLE.has(t)) return false;
+    if (t === undefined) return false;
     if (def.roomKind && officeAt(s.room.offices, cx, cy)?.kind !== def.roomKind) return false;
+    if (def.layer === 'floor') {
+      if (t === T.WALL || t === T.DOOR) return false;
+      continue;
+    }
+    if (!PLACEABLE.has(t)) return false;
     if (ORTHO.some(([dx, dy]) => tiles[cy + dy]?.[cx + dx] === T.DOOR)) return false;
     if (tiles[cy - 1]?.[cx] === T.DESK) return false;
     if (t === T.BOSS && tiles[cy + 1]?.[cx] === T.DESK) return false;
@@ -53,12 +58,13 @@ export function canPlacePet(s: Placement, x: number, y: number): boolean {
   });
 }
 
-/** Objeto bajo una casilla; los de encima tienen prioridad sobre las alfombras. */
+/** Objeto visible bajo una casilla; los de encima tienen prioridad sobre las alfombras. */
 export function objectAt(s: Pick<GameState, 'objects' | 'defs'>, x: number, y: number): PlacedObject | null {
   let found: PlacedObject | null = null;
   for (const o of s.objects) {
     const od = s.defs.get(o.type);
-    if (od && footprint(od, o.x, o.y).some(([cx, cy]) => cx === x && cy === y) && (!found || od.layer !== 'floor')) found = o;
+    if (!od) continue;
+    if (footprint(od, o.x, o.y).some(([cx, cy]) => cx === x && cy === y) && (!found || od.layer !== 'floor')) found = o;
   }
   return found;
 }

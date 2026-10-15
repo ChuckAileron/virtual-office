@@ -4,6 +4,27 @@ import { T, canTalk, computeFloorSize, generateLayout, isWalkable, officeAt } fr
 const countTiles = (tiles: number[][], type: number) => tiles.flat().filter((t) => t === type).length;
 
 describe('layout', () => {
+  it('amplía las oficinas para dejar espacio al mobiliario y a las paredes decoradas', () => {
+    const l = generateLayout({ offices: 1 });
+    const room = l.offices.find((office) => office.kind === 'office')!;
+    expect(room.w).toBe(11);
+    expect(room.h).toBe(9);
+    expect(l.size.width).toBeGreaterThan(13);
+    expect(l.size.height).toBeGreaterThan(15);
+    expect(l.tiles[room.y + 3].filter((tile) => tile === T.DESK)).toHaveLength(4);
+  });
+
+  it('reproduce la cuadrícula de referencia 67×70 para veinte oficinas y tres zonas comunes', () => {
+    const l = generateLayout({ offices: 20, conference: true, kitchen: true, rest: true });
+    expect(l.size).toMatchObject({ width: 67, height: 70, offices: 20 });
+    const find = (name: string) => l.offices.find((office) => office.name === name)!;
+    expect(find('Oficina 1')).toMatchObject({ x: 2, y: 2, w: 11, h: 9 });
+    expect(find('Oficina 11')).toMatchObject({ x: 2, y: 37, w: 11, h: 9 });
+    expect(find('Cocina')).toMatchObject({ x: 7, y: 24, w: 11, h: 9 });
+    expect(find('Sala de reuniones')).toMatchObject({ x: 20, y: 24, w: 22, h: 10 });
+    expect(find('Sala de descanso')).toMatchObject({ x: 44, y: 24, w: 15, h: 11 });
+  });
+
   it('sin extras: solo oficinas', () => {
     const s = computeFloorSize({ offices: 4 });
     expect(s.conference).toBe(false);
@@ -55,26 +76,53 @@ describe('layout', () => {
     }
   });
 
-  it('agrega cocina y descanso arriba, a los lados de la sala de reuniones', () => {
+  it('coloca los servicios entre los dos bloques de oficinas', () => {
     const l = generateLayout({ offices: 6, conference: true, kitchen: true, rest: true });
     const conf = l.offices.find((o) => o.kind === 'conference')!;
     const kitchen = l.offices.find((o) => o.kind === 'kitchen')!;
     const rest = l.offices.find((o) => o.kind === 'rest')!;
-    // Cocina a la izquierda y descanso a la derecha de la sala, todos en la misma fila superior.
+    // Cocina, reunión y descanso comparten la franja central, en ese orden.
     expect(kitchen.y).toBe(conf.y);
     expect(rest.y).toBe(conf.y);
     expect(kitchen.x + kitchen.w).toBeLessThanOrEqual(conf.x);
     expect(conf.x + conf.w).toBeLessThanOrEqual(rest.x);
-    // Quedan por encima del resto del espacio de trabajo (oficinas y jefe).
-    const othersTop = Math.min(...l.offices.filter((o) => ['office', 'boss'].includes(o.kind)).map((o) => o.y));
-    expect(conf.y).toBeLessThan(othersTop);
-    // Contenido: cocina con mesadas, descanso con sillones y mesas redondas.
+    const firstBlock = l.offices.filter((o) => o.kind === 'office' && Number(o.name.replace('Oficina ', '')) <= 3);
+    const secondBlock = l.offices.filter((o) => o.kind === 'office' && Number(o.name.replace('Oficina ', '')) > 3);
+    expect(Math.max(...firstBlock.map((o) => o.y + o.h))).toBeLessThanOrEqual(kitchen.y);
+    expect(Math.min(...secondBlock.map((o) => o.y))).toBeGreaterThanOrEqual(kitchen.y + kitchen.h);
+    // Contenido: cocina, mesa baja del descanso y mobiliario de sillones en los objetos iniciales.
     expect(countTiles(l.tiles, T.COUNTER)).toBeGreaterThan(0);
-    expect(countTiles(l.tiles, T.SOFA)).toBeGreaterThan(0);
-    expect(countTiles(l.tiles, T.ROUND_TABLE)).toBeGreaterThan(0);
+    expect(countTiles(l.tiles, T.TABLE)).toBeGreaterThan(0);
     const restTiles = l.tiles.slice(rest.y, rest.y + rest.h).flatMap((row) => row.slice(rest.x, rest.x + rest.w));
-    expect(restTiles).not.toContain(T.WALL);
-    expect(restTiles).not.toContain(T.DOOR);
+    expect(restTiles).toContain(T.WALL);
+    expect(restTiles).toContain(T.DOOR);
+    expect(restTiles.filter((tile) => tile === T.TABLE)).toHaveLength(6);
+  });
+
+  it('reserva la pared sur acristalada y una puerta central para la sala de reuniones', () => {
+    const l = generateLayout({ offices: 8, conference: true });
+    const conf = l.offices.find((office) => office.kind === 'conference')!;
+    const south = l.tiles[conf.y + conf.h - 1].slice(conf.x, conf.x + conf.w);
+    expect(south.filter((tile) => tile === T.WALL)).toHaveLength(conf.w - 3);
+    expect(south.filter((tile) => tile === T.DOOR)).toHaveLength(3);
+    expect(l.size.version).toBe(16);
+  });
+
+  it('centra una mesa de reuniones larga y deja el despacho del jefe con escritorio despejado', () => {
+    const l = generateLayout({ offices: 20, conference: true, boss: true });
+    const meeting = l.offices.find((office) => office.kind === 'conference')!;
+    const boss = l.offices.find((office) => office.kind === 'boss')!;
+    const roomCount = (room: typeof meeting, tile: number) => l.tiles
+      .slice(room.y, room.y + room.h)
+      .reduce((count, row) => count + row.slice(room.x, room.x + room.w).filter((value) => value === tile).length, 0);
+
+    expect(roomCount(meeting, T.TABLE)).toBe(36);
+    expect(roomCount(meeting, T.CHAIR)).toBe(20);
+    expect(roomCount(boss, T.DESK)).toBe(4);
+    expect(roomCount(boss, T.TABLE)).toBe(0);
+    expect(roomCount(boss, T.CHAIR)).toBe(0);
+    expect(l.tiles[meeting.y + 3].filter((tile) => tile === T.CHAIR)).toHaveLength(10);
+    expect(l.tiles[meeting.y + 7].filter((tile) => tile === T.CHAIR)).toHaveLength(10);
   });
 
   it('centra cocina y descanso cuando no hay sala de reuniones', () => {
@@ -129,16 +177,9 @@ describe('layout', () => {
 
     for (const o of l.offices) {
       expect(o.x >= 1 && o.y >= 1 && o.x + o.w <= W - 1 && o.y + o.h <= H - 1).toBe(true);
-      if (o.kind === 'rest') {
-        // El descanso es un espacio abierto, sin paredes ni puerta propia.
-        const area = l.tiles.slice(o.y, o.y + o.h).flatMap((row) => row.slice(o.x, o.x + o.w));
-        expect(area).not.toContain(T.WALL);
-        expect(area).not.toContain(T.DOOR);
-      } else {
-        // Las oficinas tienen puerta en su pared inferior; la entrada la tiene en su pared superior.
-        const doorY = o.kind === 'lobby' ? o.y - 1 : o.y + o.h - 1;
-        expect(l.tiles[doorY][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
-      }
+      // Las habitaciones cerradas y el descanso tienen puerta inferior; la entrada conecta arriba.
+      const doorY = o.kind === 'lobby' ? o.y - 1 : o.y + o.h - 1;
+      expect(l.tiles[doorY][o.x + Math.floor(o.w / 2)]).toBe(T.DOOR);
     }
     for (let i = 0; i < l.offices.length; i++) {
       for (let j = i + 1; j < l.offices.length; j++) {
@@ -148,8 +189,10 @@ describe('layout', () => {
     }
 
     if (conference) {
-      expect(conf[0].y).toBe(Math.min(...l.offices.map((o) => o.y)));
-      expect(countTiles(l.tiles, T.CHAIR)).toBe(n);
+      expect(conf[0].y).toBeGreaterThan(Math.min(...normal.map((o) => o.y)));
+      const conferenceTiles = l.tiles.slice(conf[0].y, conf[0].y + conf[0].h)
+        .flatMap((row) => row.slice(conf[0].x, conf[0].x + conf[0].w));
+      expect(conferenceTiles.filter((tile) => tile === T.CHAIR)).toHaveLength(n);
     }
     if (boss) {
       const b = bossRooms[0];

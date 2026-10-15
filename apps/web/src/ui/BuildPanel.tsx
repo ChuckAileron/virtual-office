@@ -72,7 +72,10 @@ export function BuildPanel({ session }: { session: GameSession }) {
   const currentOffice = me ? officeAt(state.room.offices, me.x, me.y) : null;
   const floorStyle = currentOffice && state.floorStyles.find((style) => style.officeId === currentOffice.id);
   const floorPattern = floorStyle?.pattern ?? 'checker';
-  const defaultFloorColor = currentOffice?.kind === 'boss' ? '#7a4a52' : currentOffice?.kind === 'conference' ? '#a9b8a2' : '#b9a27c';
+  const defaultFloorColor = currentOffice?.kind === 'boss' ? '#b08a5d'
+    : currentOffice?.kind === 'conference' ? '#b39165'
+      : currentOffice?.kind === 'kitchen' ? '#8c9597'
+        : currentOffice?.kind === 'lobby' ? '#bb9a70' : '#b79263';
   const floorColor = floorStyle?.color ?? defaultFloorColor;
   const colors = state.accessories.colors;
   const acc: Accessories = { hat: null, glasses: null, extra: null, hatColor: colors[0], extraColor: colors[0], ...me?.appearance.acc };

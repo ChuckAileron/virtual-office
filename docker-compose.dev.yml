@@ -1,0 +1,17 @@
+# Overrides para desarrollo local (npm run dev:lan).
+# Publica en el host los puertos que el servidor y el cliente necesitan cuando
+# la app NO corre dentro de Docker. No lo uses en producción.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres janus
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  janus:
+    ports:
+      # API HTTP interna que usa el servidor de desarrollo para crear salas.
+      - "8088:8088"
+      # WebSocket que consume el navegador (proxied por Vite en /janus).
+      - "8188:8188"

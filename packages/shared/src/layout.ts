@@ -2,19 +2,20 @@ import { Layout, LayoutOptions, FloorSize, Office, Point, Tiles, T } from './typ
 
 const WALKABLE = new Set<number>([T.FLOOR, T.OFFICE, T.DOOR, T.CHAIR, T.BOSS, T.CONF, T.LOBBY, T.KITCHEN, T.REST, T.SOFA]);
 
-export const OFFICE_W = 9; // incluye paredes
-export const OFFICE_H = 7;
-const BOSS_W = 15;
-const BOSS_H = 9;
-const CONF_H = 8;
+export const OFFICE_W = 11; // incluye paredes
+export const OFFICE_H = 9;
+const DESK_TILES = 4;
+const BOSS_W = 17;
+const BOSS_H = 11;
+const CONF_H = 10;
 const CONF_MIN_W = 9;
 const GIANT_TV_W = 3;
-const KITCHEN_W = 9;
-const KITCHEN_H = 7;
-const REST_W = 13;
-const REST_H = 9;
+const KITCHEN_W = 11;
+const KITCHEN_H = 9;
+const REST_W = 15;
+const REST_H = 11;
 /** Alto total de la franja de entrada, incluida la pared inferior que la cierra. */
-const LOBBY_H = 5;
+const LOBBY_H = 9;
 /** Filas de pasillo de entrada entre la última oficina y el muro que cierra el espacio de trabajo. */
 const ENTRANCE_HALL = 3;
 const GAP = 2; // espacio libre entre habitaciones
@@ -48,11 +49,11 @@ export interface PlannedLobby {
 }
 
 /** Se sube al cambiar el trazado para regenerar los espacios creados con un diseño anterior. */
-export const LAYOUT_VERSION = 7;
+export const LAYOUT_VERSION = 16;
 
 /**
- * Calcula la distribución del espacio de trabajo a partir de la cantidad de oficinas y de si
- * hay cocina, sala de reuniones y espacio de descanso (arriba) y oficina del jefe (al medio).
+ * Ordena el mapa en bandas: oficinas superiores, servicios comunes, oficinas inferiores y entrada.
+ * La oficina del jefe se intercala entre el primer bloque y la franja de servicios.
  */
 export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: PlannedRoom[]; lobby: PlannedLobby } {
   const n = clampInt(opts.offices, 1, LIMITS.maxOffices);
@@ -67,7 +68,8 @@ export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: 
     for (let left = count; left > 0; left -= cols) rows.push(Math.min(cols, left));
     return rows;
   };
-  const topCount = boss ? Math.ceil(n / 2) : n;
+  const hasServiceBand = conference || kitchen || rest;
+  const topCount = boss || hasServiceBand ? Math.ceil(n / 2) : n;
   const topRows = splitRows(topCount);
   const bottomRows = splitRows(n - topCount);
   const rowWidth = (k: number) => k * OFFICE_W + (k - 1) * GAP;
@@ -81,8 +83,7 @@ export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: 
   const bossW = boss ? BOSS_W : 0;
   const widest = Math.max(...topRows, ...(bottomRows.length ? bottomRows : [0]));
 
-  // Fila superior: cocina (izquierda), sala de reuniones (centro) y descanso (derecha).
-  // Si no hay sala de reuniones, lo que se elija queda centrado como grupo.
+  // Franja de servicios: cocina a la izquierda, reunión al centro y descanso a la derecha.
   const topRooms: PlannedRoom[] = [];
   if (kitchen) topRooms.push({ kind: 'kitchen', x: 0, y: 0, w: KITCHEN_W, h: KITCHEN_H });
   if (conference) topRooms.push({ kind: 'conference', x: 0, y: 0, w: confW, h: CONF_H, perSide });
@@ -108,13 +109,13 @@ export function planLayout(opts: LayoutOptions = {}): { size: FloorSize; rooms: 
     }
   };
 
+  officeRows(topRows);
+  if (boss) section('boss', BOSS_W, BOSS_H);
   if (topRooms.length) {
     let x = centerX(topRowW);
     for (const r of topRooms) { rooms.push({ ...r, x, y }); x += r.w + GAP; }
     y += topRowH + GAP;
   }
-  officeRows(topRows);
-  if (boss) section('boss', BOSS_W, BOSS_H);
   officeRows(bottomRows);
   // El recinto del espacio de trabajo (con su borde inferior) queda por encima de la entrada.
   // La entrada (lobby) es una franja a todo el ancho al fondo, con una puerta que la conecta.
@@ -129,21 +130,21 @@ export function computeFloorSize(opts: LayoutOptions): FloorSize {
   return planLayout(opts).size;
 }
 
-/** Sillones (transitables) alrededor de mesas redondas dentro del espacio de descanso. */
+/** Zona de descanso: mesa baja centrada; los sofás se siembran como mobiliario. */
 function placeRest(tiles: Tiles, r: PlannedRoom): void {
-  const ax = r.x + 1, ay = r.y + 1;
-  const cluster = (tx: number, ty: number) => {
-    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) tiles[ty + dy][tx + dx] = T.ROUND_TABLE;
-    const seats: Array<[number, number]> = [
-      [tx, ty - 1], [tx + 1, ty - 1], // arriba
-      [tx, ty + 2], [tx + 1, ty + 2], // abajo
-      [tx - 1, ty], [tx - 1, ty + 1], // izquierda
-      [tx + 2, ty], [tx + 2, ty + 1], // derecha
-    ];
-    for (const [sx, sy] of seats) if (tiles[sy]?.[sx] !== undefined && tiles[sy][sx] !== T.WALL) tiles[sy][sx] = T.SOFA;
-  };
-  cluster(ax + 2, ay + 2);
-  cluster(ax + 7, ay + 2);
+  const tx = r.x + 6, ty = r.y + 6;
+  for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 3; dx++) tiles[ty + dy][tx + dx] = T.TABLE;
+}
+
+/** Recepción y zona de espera que completan la franja de entrada del diseño. */
+function placeLobby(tiles: Tiles, lobby: PlannedLobby): void {
+  const counterX = lobby.x + 2, counterY = lobby.y + 3;
+  for (let x = counterX; x < counterX + 6; x++) tiles[counterY][x] = T.COUNTER;
+  for (let y = counterY + 1; y <= lobby.y + 7; y++) tiles[y][counterX] = T.COUNTER;
+  tiles[lobby.y + 1][lobby.x + 5] = T.CHAIR;
+
+  const tx = lobby.x + lobby.w - 10, ty = lobby.y + 5;
+  for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 3; dx++) tiles[ty + dy][tx + dx] = T.TABLE;
 }
 
 export function generateLayout(opts: LayoutOptions): Layout {
@@ -158,42 +159,45 @@ export function generateLayout(opts: LayoutOptions): Layout {
   let officeNo = 0;
   for (const r of placed) {
     const floor = r.kind === 'boss' ? T.BOSS : r.kind === 'conference' ? T.CONF : r.kind === 'kitchen' ? T.KITCHEN : r.kind === 'rest' ? T.REST : T.OFFICE;
-    const openArea = r.kind === 'rest';
     for (let y = r.y; y < r.y + r.h; y++) {
       for (let x = r.x; x < r.x + r.w; x++) {
-        const wall = !openArea && (x === r.x || x === r.x + r.w - 1 || y === r.y || y === r.y + r.h - 1);
+        const wall = x === r.x || x === r.x + r.w - 1 || y === r.y || y === r.y + r.h - 1;
         tiles[y][x] = wall ? T.WALL : floor;
       }
     }
     const dc = r.x + Math.floor(r.w / 2);
-    if (!openArea) {
-      // Puerta de 3 tiles centrada en la pared inferior.
-      for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + r.h - 1][x] = T.DOOR;
-    }
+    // Puerta de 3 tiles centrada en la pared inferior.
+    for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + r.h - 1][x] = T.DOOR;
 
     let name: string;
     if (r.kind === 'office') {
-      for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + 2][x] = T.DESK;
+      for (let x = dc - 2; x < dc - 2 + DESK_TILES; x++) tiles[r.y + 3][x] = T.DESK;
       name = `Oficina ${++officeNo}`;
     } else if (r.kind === 'boss') {
-      for (let x = dc - 1; x <= dc + 1; x++) tiles[r.y + 3][x] = T.DESK;
+      for (let x = dc - 2; x < dc - 2 + DESK_TILES; x++) tiles[r.y + 3][x] = T.DESK;
       name = 'Oficina del jefe';
     } else if (r.kind === 'kitchen') {
-      for (let x = r.x + 1; x <= r.x + r.w - 2; x++) tiles[r.y + 1][x] = T.COUNTER;
+      for (let y = r.y + 3; y <= r.y + 4; y++) for (let x = r.x + 1; x <= r.x + 7; x++) tiles[y][x] = T.COUNTER;
+      for (let y = r.y + 5; y <= r.y + 6; y++) for (let x = r.x + 2; x <= r.x + 8; x++) tiles[y][x] = T.COUNTER;
+      tiles[r.y + 7][r.x + 3] = T.CHAIR;
+      tiles[r.y + 7][r.x + 6] = T.CHAIR;
       name = 'Cocina';
     } else if (r.kind === 'rest') {
       placeRest(tiles, r);
-      name = 'Espacio de descanso';
+      tiles[r.y + 4][r.x + r.w - 3] = T.COUNTER;
+      name = 'Sala de descanso';
     } else {
-      // Mesa de reuniones con una silla por oficina (mitad arriba, mitad abajo)
+      // Mesa larga con cabeceras y sillas distribuidas a ambos lados.
       const perSide = r.perSide ?? 0;
-      const tx0 = r.x + 1 + Math.floor((r.w - 2 - perSide) / 2);
-      for (let i = 0; i < perSide; i++) {
-        tiles[r.y + 3][tx0 + i] = T.TABLE;
-        tiles[r.y + 4][tx0 + i] = T.TABLE;
-        tiles[r.y + 2][tx0 + i] = T.CHAIR;
-        if (i < size.offices - perSide) tiles[r.y + 5][tx0 + i] = T.CHAIR;
-      }
+      const tableWidth = perSide + 2;
+      const tx0 = r.x + 1 + Math.floor((r.w - 2 - tableWidth) / 2);
+      for (let y = r.y + 4; y <= r.y + 6; y++) for (let x = tx0; x < tx0 + tableWidth; x++) tiles[y][x] = T.TABLE;
+      const placeSeats = (y: number, count: number) => {
+        const start = tx0 + Math.floor((tableWidth - count) / 2);
+        for (let i = 0; i < count; i++) tiles[y][start + i] = T.CHAIR;
+      };
+      placeSeats(r.y + 3, perSide);
+      placeSeats(r.y + 7, size.offices - perSide);
       name = 'Sala de reuniones';
     }
     offices.push({ id: offices.length + 1, kind: r.kind, name, x: r.x, y: r.y, w: r.w, h: r.h });
@@ -209,6 +213,7 @@ export function generateLayout(opts: LayoutOptions): Layout {
   for (let y = lobby.y; y < lobby.y + lobby.h; y++) {
     for (let x = lobby.x; x < lobby.x + lobby.w; x++) tiles[y][x] = T.LOBBY;
   }
+  placeLobby(tiles, lobby);
   offices.push({ id: offices.length + 1, kind: 'lobby', name: 'Entrada', x: lobby.x, y: lobby.y, w: lobby.w, h: lobby.h });
 
   return { size, tiles, offices };

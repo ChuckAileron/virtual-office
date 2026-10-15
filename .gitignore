@@ -1,5 +1,6 @@
 node_modules/
 data/
+certs/
 *.db
 *.db-journal
 *.db-wal
@@ -25,3 +26,8 @@ Thumbs.db
 
 TODO.txt
 BUGS.txt
+
+docs/screenshots-asis/
+docs/screenshots-tobe/
+
+assets/

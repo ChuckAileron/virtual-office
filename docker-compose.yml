@@ -1,9 +1,9 @@
-services:
+﻿services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     dns:
-      - ${DNS_SERVER:-127.0.0.11}
+      - ${DNS_SERVER:-9.9.9.9}
     environment:
       POSTGRES_USER: office
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Ejecuta npm run setup para generar .env}
@@ -21,7 +21,7 @@ services:
     image: ladamalina/janus-gateway:v1.4.1
     restart: unless-stopped
     dns:
-      - ${DNS_SERVER:-127.0.0.11}
+      - ${DNS_SERVER:-9.9.9.9}
     # La imagen no define entrypoint. Generamos el config de VideoRoom con el
     # admin_key del .env y arrancamos Janus exigiendo token HMAC en cada petición.
     entrypoint: ["/bin/sh", "-c"]
@@ -41,7 +41,7 @@ services:
     build: .
     restart: unless-stopped
     dns:
-      - ${DNS_SERVER:-127.0.0.11}
+      - ${DNS_SERVER:-9.9.9.9}
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,7 +68,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     dns:
-      - ${DNS_SERVER:-127.0.0.11}
+      - ${DNS_SERVER:-9.9.9.9}
     depends_on:
       - server
       - janus

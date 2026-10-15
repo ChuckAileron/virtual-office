@@ -7,6 +7,7 @@ COPY apps/web/package.json apps/web/
 RUN npm ci
 COPY packages packages
 COPY apps apps
+COPY assets/interiores-canvas-grid-67x70/assets assets/interiores-canvas-grid-67x70/assets
 RUN npm run build
 
 FROM node:22-alpine

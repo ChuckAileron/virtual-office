@@ -178,6 +178,15 @@ export class Repository {
     await this.db.query('DELETE FROM objects WHERE id = $1 AND room_code = $2', [id, code]);
   }
 
+  async moveObject(code: string, id: number, x: number, y: number): Promise<void> {
+    await this.db.query('UPDATE objects SET x = $1, y = $2 WHERE id = $3 AND room_code = $4', [x, y, id, code]);
+  }
+
+  async updateObjectPreset(code: string, id: number, type: string, x: number, y: number, perspective: 'front' | 'side' = 'front', flipped = false): Promise<void> {
+    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : 'front';
+    await this.db.query('UPDATE objects SET type = $1, x = $2, y = $3, orientation = $4 WHERE id = $5 AND room_code = $6', [type, x, y, orientation, id, code]);
+  }
+
   async loadObjects(code: string): Promise<PlacedObject[]> {
     const r = await this.db.query('SELECT id, type, x, y, orientation FROM objects WHERE room_code = $1 ORDER BY id', [code]);
     return r.rows.map((o) => ({
@@ -204,6 +213,10 @@ export class Repository {
     return r.rows.map((p) => ({ id: Number(p.id), kind: p.kind, color: p.color, x: Number(p.x), y: Number(p.y), dir: p.dir }));
   }
 
+  async movePet(code: string, id: number, x: number, y: number): Promise<void> {
+    await this.db.query('UPDATE pets SET x = $1, y = $2 WHERE id = $3 AND room_code = $4', [x, y, id, code]);
+  }
+
   async addFloorDecoration(code: string, imageUrl: string, x: number, y: number, w: number, h: number): Promise<FloorDecoration> {
     const r = await this.db.query(
       'INSERT INTO floor_decorations (room_code, image_url, x, y, w, h) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
@@ -226,6 +239,10 @@ export class Repository {
     }));
   }
 
+  async moveFloorDecoration(code: string, id: number, x: number, y: number): Promise<void> {
+    await this.db.query('UPDATE floor_decorations SET x = $1, y = $2 WHERE id = $3 AND room_code = $4', [x, y, id, code]);
+  }
+
   async loadOfficeFloorStyles(code: string): Promise<OfficeFloorStyle[]> {
     const r = await this.db.query('SELECT office_id, color, pattern FROM floor_styles WHERE room_code = $1', [code]);
     return r.rows.map((style) => ({ officeId: Number(style.office_id), color: style.color, pattern: style.pattern }));
@@ -237,6 +254,15 @@ export class Repository {
        ON CONFLICT (room_code, office_id) DO UPDATE SET color = EXCLUDED.color, pattern = EXCLUDED.pattern`,
       [code, style.officeId, style.color, style.pattern],
     );
+  }
+
+  async remapOfficeFloorStyles(code: string, mappings: Array<{ from: number; to: number }>): Promise<void> {
+    if (!mappings.some(({ from, to }) => from !== to)) return;
+    const temporaryOffset = 1_000_000;
+    await this.db.query('UPDATE floor_styles SET office_id = office_id + $1 WHERE room_code = $2', [temporaryOffset, code]);
+    for (const { from, to } of mappings) {
+      await this.db.query('UPDATE floor_styles SET office_id = $1 WHERE room_code = $2 AND office_id = $3', [to, code, from + temporaryOffset]);
+    }
   }
 
   private toUser(row: any): UserRow {

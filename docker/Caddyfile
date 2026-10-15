@@ -1,5 +1,8 @@
 {
 	auto_https disable_redirects
+	# Los navegadores no envían SNI al conectarse por IP: sin esto, Caddy no
+	# sabe qué certificado servir y la conexión HTTPS falla con "internal error".
+	default_sni {$LAN_IP}
 }
 
 https://{$LAN_IP} {

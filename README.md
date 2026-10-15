@@ -26,6 +26,7 @@ apps/web        Cliente React + Vite
 apps/server     API REST + Socket.IO (NestJS)
 packages/shared Reglas de juego y protocolo compartidos (TypeScript)
 docker/         Caddyfile (HTTPS local)
+docs/           Guías (acceso desde otros equipos)
 scripts/        setup-env.mjs (detecta la IP y genera .env)
 legacy/         Versión anterior (Node + SQLite). Se puede borrar.
 ```
@@ -38,9 +39,10 @@ Requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (o
 npm install
 npm run setup     # detecta tu IP de LAN y crea .env con secretos aleatorios
 npm run up        # docker compose up -d --build
+npm run check     # diagnóstico: contenedores, puertos y HTTPS
 ```
 
-Los demás equipos abren **`https://<IP-del-servidor>`** (la IP que muestra `npm run setup`).
+Los demás equipos abren **`https://<IP-del-servidor>`** (la IP que muestra `npm run setup`). Guía paso a paso: **[docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md)**.
 
 Opcionalmente, puedes hacer que los contenedores consulten el DNS público de Quad9: añade `DNS_SERVER=9.9.9.9` a `.env` y recrea los servicios con `npm run up`. Por defecto se conserva el resolver DNS integrado de Docker (`127.0.0.11`).
 
@@ -66,6 +68,14 @@ Abre en el equipo servidor (solo en la red local):
 | 443/tcp, 80/tcp | Aplicación (HTTPS) |
 | 20000–20100/udp | Medios WebRTC de Janus (audio/video) |
 
+En Windows puedes abrir esos puertos automáticamente (pide permisos de administrador):
+
+```powershell
+npm run firewall              # TCP 80/443 + UDP 20000-20100
+npm run firewall -- -Dev      # añade TCP 5173 para npm run dev:lan
+npm run firewall -- -Remove
+```
+
 PostgreSQL **no** se publica fuera de Docker.
 
 ### Detener
@@ -89,6 +99,36 @@ npm test                    # shared + server + web
 npm run typecheck
 npm run build
 ```
+
+### Desarrollo en red local con voz/video (`npm run dev:lan`)
+
+Para probar la app **desde otros equipos** sin construir la imagen de Docker, con
+recarga en caliente y **HTTPS** (necesario para cámara/micrófono), usa:
+
+```bash
+npm run dev:lan                 # detecta la IP de la LAN automáticamente
+npm run dev:lan -- --ip 192.168.1.7   # fuerza una IP concreta
+npm run dev:lan -- --no-docker  # sin PostgreSQL/Janus (sin voz/video)
+```
+
+El script:
+
+1. Genera `.env` (IP de la LAN + secretos) si no existe.
+2. Crea un certificado TLS autofirmado para esa IP en `certs/dev.crt` (y `certs/dev.key`).
+3. Levanta **PostgreSQL y Janus** en Docker usando `docker-compose.dev.yml`
+   (publica 5432, 8088 y 8188 solo para el host).
+4. Arranca la API (`dev:server`) y el cliente (Vite con HTTPS en `:5173`).
+
+Los demás equipos abren **`https://<IP>:5173`**. El navegador avisará del
+certificado autofirmado: acéptalo una vez. Para no ver el aviso, instala
+`certs/dev.crt` como entidad de certificación raíz de confianza (mismos pasos que
+la sección [Confiar en el certificado HTTPS](#confiar-en-el-certificado-https)).
+
+Detén con `Ctrl+C`. La infraestructura Docker se apaga con `npm run down`.
+
+> Si `dev:lan` no puede levantar los contenedores, seguirá arrancando la app pero
+> sin voz/video. Revisa que Docker Desktop esté en marcha y que el firewall permita
+> el puerto TCP 5173 y el rango UDP 20000–20100.
 
 ### Variables de entorno del servidor
 
