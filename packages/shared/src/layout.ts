@@ -49,7 +49,7 @@ export interface PlannedLobby {
 }
 
 /** Se sube al cambiar el trazado para regenerar los espacios creados con un diseño anterior. */
-export const LAYOUT_VERSION = 16;
+export const LAYOUT_VERSION = 18;
 
 /**
  * Ordena el mapa en bandas: oficinas superiores, servicios comunes, oficinas inferiores y entrada.

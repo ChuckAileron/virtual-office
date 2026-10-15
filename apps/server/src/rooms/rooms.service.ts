@@ -147,7 +147,7 @@ export class RoomsService implements OnModuleInit {
           break;
         case 'rest':
           add('sofa_wide', room.x + 5, room.y + 2);
-          add('sofa_vertical', room.x + 2, room.y + 5);
+          add('sofa_vertical', room.x + 2, room.y + 5, 'front', true);
           add('sofa_vertical', room.x + room.w - 4, room.y + 5);
           add('plant', left, room.y + 2);
           add('plant', right, room.y + 2);
@@ -243,6 +243,8 @@ export class RoomsService implements OnModuleInit {
         for (const y of [room.y + 4, room.y + 6]) for (const x of [room.x + 4, room.x + 7, room.x + 10]) mark('rug', x, y);
       }
       if (room.kind === 'rest') {
+        mark('sofa_vertical_blue', room.x + room.w - 3, room.y + 3);
+        mark('sofa', room.x + 5, room.y + room.h - 2);
         for (const y of [room.y + 3, room.y + 5]) for (const x of [room.x + 3, room.x + 6, room.x + 9]) mark('rug', x, y);
       }
       if (room.kind === 'lobby') {
@@ -261,9 +263,9 @@ export class RoomsService implements OnModuleInit {
 
   /** Conserva los IDs de los muebles de sistema al migrarlos a las nuevas piezas de referencia. */
   private async upgradeLegacyFurniturePresets(code: string, layout: Layout): Promise<void> {
-    const upgrades: Array<{ from: string; x: number; y: number; to: string; newX: number; newY: number }> = [];
-    const addUpgrade = (from: string, x: number, y: number, to: string, newX: number, newY: number) =>
-      upgrades.push({ from, x, y, to, newX, newY });
+    const upgrades: Array<{ from: string; x: number; y: number; to: string; newX: number; newY: number; flipped?: boolean }> = [];
+    const addUpgrade = (from: string, x: number, y: number, to: string, newX: number, newY: number, flipped?: boolean) =>
+      upgrades.push({ from, x, y, to, newX, newY, flipped });
     for (const room of layout.offices) {
       const left = room.x + 1, right = room.x + room.w - 2;
       const oldTop = room.y + 1, newTop = room.y + 2;
@@ -293,10 +295,9 @@ export class RoomsService implements OnModuleInit {
       } else if (room.kind === 'rest') {
         addUpgrade('sofa', room.x + 2, oldTop, 'sofa_wide', room.x + 5, room.y + 2);
         addUpgrade('sofa', right - 1, oldTop, 'sofa_vertical', room.x + 2, room.y + 5);
-        addUpgrade('sofa', room.x + 5, oldBottom, 'sofa_vertical', room.x + room.w - 4, room.y + 5);
         addUpgrade('sofa_wide', room.x + 5, room.y + 1, 'sofa_wide', room.x + 5, room.y + 2);
-        addUpgrade('sofa_vertical_blue', left, room.y + 3, 'sofa_vertical', room.x + 2, room.y + 5);
-        addUpgrade('sofa_vertical_blue', right - 1, room.y + 3, 'sofa_vertical', room.x + room.w - 4, room.y + 5);
+        addUpgrade('sofa_vertical_blue', left, room.y + 3, 'sofa_vertical', room.x + 2, room.y + 5, true);
+        addUpgrade('sofa_vertical', room.x + 2, room.y + 5, 'sofa_vertical', room.x + 2, room.y + 5, true);
         addUpgrade('plant', left, room.y + 1, 'plant', left, room.y + 2);
         addUpgrade('plant', right, room.y + 1, 'plant', right, room.y + 2);
         addUpgrade('plant', right, oldBottom, 'plant', right, serviceY);
@@ -318,9 +319,12 @@ export class RoomsService implements OnModuleInit {
       const blocked = existing.some((entry) => {
         if (entry.id === object.id) return false;
         const def = defOf(entry.type);
-        return !!def && footprint(def, entry.x, entry.y).some(([x, y]) => targetCells.some(([tx, ty]) => tx === x && ty === y));
+        return !!def?.solid && footprint(def, entry.x, entry.y).some(([x, y]) => targetCells.some(([tx, ty]) => tx === x && ty === y));
       });
-      if (!blocked) await this.repo.updateObjectPreset(code, object.id, upgrade.to, upgrade.newX, upgrade.newY);
+      if (!blocked) await this.repo.updateObjectPreset(
+        code, object.id, upgrade.to, upgrade.newX, upgrade.newY,
+        object.perspective ?? 'front', upgrade.flipped ?? object.flipped ?? false,
+      );
     }
   }
 }

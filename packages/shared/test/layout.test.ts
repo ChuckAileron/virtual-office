@@ -105,7 +105,7 @@ describe('layout', () => {
     const south = l.tiles[conf.y + conf.h - 1].slice(conf.x, conf.x + conf.w);
     expect(south.filter((tile) => tile === T.WALL)).toHaveLength(conf.w - 3);
     expect(south.filter((tile) => tile === T.DOOR)).toHaveLength(3);
-    expect(l.size.version).toBe(16);
+    expect(l.size.version).toBe(18);
   });
 
   it('centra una mesa de reuniones larga y deja el despacho del jefe con escritorio despejado', () => {

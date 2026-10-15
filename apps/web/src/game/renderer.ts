@@ -261,19 +261,8 @@ function drawLobbyReception(ctx: CanvasRenderingContext2D, state: GameState): vo
   for (const room of state.room.offices) {
     if (room.kind !== 'lobby') continue;
     const x = (room.x - 1) * TILE + 96, y = (room.y - 1) * TILE + 120;
-    const counter = (px: number, py: number, w: number, h: number) => {
-      ctx.fillStyle = '#242a3080'; ctx.fillRect(px + 5, py + 6, w, h);
-      ctx.fillStyle = '#44534e'; ctx.fillRect(px, py, w, h);
-      ctx.fillStyle = '#a9b4ae'; ctx.fillRect(px + 2, py + 2, w - 4, h - 4);
-      ctx.fillStyle = '#dfe5d6'; ctx.fillRect(px + 3, py + 3, w - 6, 3);
-      ctx.fillStyle = '#767f76'; ctx.fillRect(px + 3, py + h - 9, w - 6, 7);
-      for (let xx = px + 3; xx < px + w - 3; xx += 34) {
-        ctx.fillStyle = '#4f5e54'; ctx.fillRect(xx, py + h - 9, 1, 7);
-        ctx.fillStyle = '#bfcbbb'; ctx.fillRect(xx + 10, py + h - 7, 9, 1);
-      }
-    };
-    counter(x, y, 178, 45);
-    counter(x, y + 42, 42, 88);
+    drawReferenceCounter(ctx, x, y, 178, 45);
+    drawReferenceCounter(ctx, x, y + 42, 42, 88);
 
     const mx = x + 109, my = y - 18;
     ctx.fillStyle = '#333b43'; ctx.fillRect(mx, my, 26, 22);
@@ -293,19 +282,38 @@ function drawLobbyReception(ctx: CanvasRenderingContext2D, state: GameState): vo
   }
 }
 
+function drawReferenceCounter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  ctx.fillStyle = '#242a3080'; ctx.fillRect(x + 5, y + 6, w, h);
+  ctx.fillStyle = '#44534e'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#a9b4ae'; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = '#dfe5d6'; ctx.fillRect(x + 3, y + 3, w - 6, 3);
+  ctx.fillStyle = '#767f76'; ctx.fillRect(x + 3, y + h - 9, w - 6, 7);
+  for (let xx = x + 3; xx < x + w - 3; xx += 34) {
+    ctx.fillStyle = '#4f5e54'; ctx.fillRect(xx, y + h - 9, 1, 7);
+    ctx.fillStyle = '#bfcbbb'; ctx.fillRect(xx + 10, y + h - 7, 9, 1);
+  }
+}
+
+function drawRestCoffeeCounter(ctx: CanvasRenderingContext2D, state: GameState): void {
+  for (const room of state.room.offices) {
+    if (room.kind !== 'rest') continue;
+    const x = (room.x + room.w) * TILE - 79, y = room.y * TILE + 145;
+    drawReferenceCounter(ctx, x, y, 40, 36);
+    drawCoffeeMachine(ctx, x + 6, y - 8);
+  }
+}
+
 function drawCounterTile(ctx: CanvasRenderingContext2D, state: GameState, x: number, y: number): void {
   const px = x * TILE, py = y * TILE;
   const room = officeAt(state.room.offices, x, y);
   if (room?.kind === 'kitchen' || room?.kind === 'lobby') return;
+  if (room?.kind === 'rest' && x === room.x + room.w - 3 && y === room.y + 4) return;
   ctx.fillStyle = '#424644'; ctx.fillRect(px, py + 1, TILE, TILE - 1);
   ctx.fillStyle = '#b1b8b4'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 8);
   ctx.fillStyle = '#dce1d7'; ctx.fillRect(px + 3, py + 3, TILE - 6, 4);
   ctx.fillStyle = '#777d72'; ctx.fillRect(px, py + TILE - 6, TILE, 6);
   ctx.fillStyle = '#657168'; ctx.fillRect(px + 5, py + TILE - 8, TILE - 10, 2);
 
-  if (room?.kind === 'rest' && x === room.x + room.w - 3 && y === room.y + 4) {
-    drawCoffeeMachine(ctx, px + 23, py + 9);
-  }
 }
 
 function drawTileBase(ctx: CanvasRenderingContext2D, state: GameState, t: number, x: number, y: number, tiles: Tiles): void {
@@ -317,15 +325,10 @@ function drawTileBase(ctx: CanvasRenderingContext2D, state: GameState, t: number
   if (t === T.DOOR) {
     const room = officeAt(state.room.offices, x, y);
     if (room?.kind === 'conference') {
-      ctx.fillStyle = '#34444b'; ctx.fillRect(px, py, TILE, TILE);
-      ctx.fillStyle = '#8ba9a1'; ctx.fillRect(px + 3, py + 2, TILE - 6, TILE - 6);
-      ctx.fillStyle = '#d6e4d7'; ctx.fillRect(px + 5, py + 4, 2, TILE - 12);
-      ctx.fillStyle = '#e6f3e355'; ctx.fillRect(px + 11, py + 4, 5, TILE - 12);
-      ctx.fillStyle = '#5c7076'; ctx.fillRect(px + TILE - 4, py + 2, 2, TILE - 6);
-      if (x === room.x + Math.floor(room.w / 2)) {
-        ctx.fillStyle = '#d9d5c2'; ctx.fillRect(px + 10, py + 14, 2, 5); ctx.fillRect(px + 20, py + 14, 2, 5);
-      }
-      ctx.fillStyle = '#34444b'; ctx.fillRect(px, py + TILE - 3, TILE, 3);
+      // Abertura transitable con umbral de madera; la referencia no tiene hojas ni marcos de puerta.
+      ctx.fillStyle = '#b99160'; ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = '#cfac78'; ctx.fillRect(px, py, TILE, 2);
+      ctx.fillStyle = '#957145'; ctx.fillRect(px, py + 15, TILE, 1); ctx.fillRect(px, py + TILE - 1, TILE, 1);
       return;
     }
     if (room?.kind === 'kitchen') drawCheckerTile(ctx, px, py, FLOORS.kitchen[(x + y) % 2]);
@@ -600,8 +603,9 @@ function drawPlacedFurniture(
   object: GameState['objects'][number],
   def: { type: string; w: number; h: number },
 ): void {
-  const image = objectSprite(def, object.perspective ?? 'front', object.flipped ?? false);
   const room = officeAt(state.room.offices, object.x, object.y);
+  const faceFlipped = room?.kind === 'rest' && def.type === 'sofa_vertical' && object.x === room.x + 2;
+  const image = objectSprite(def, object.perspective ?? 'front', !!object.flipped || faceFlipped);
   let x = object.x * TILE, y = object.y * TILE, w = def.w * TILE, h = def.h * TILE;
   if (room?.kind === 'office' || room?.kind === 'boss') {
     if (def.type === 'bookshelf_tall') { w = 56; h = 72; }
@@ -725,6 +729,7 @@ export function render(
   drawWallDecorations(ctx, state);
   drawKitchenInterior(ctx, state);
   drawLobbyReception(ctx, state);
+  drawRestCoffeeCounter(ctx, state);
 
   // Imágenes de piso: cubren la textura base, pero nunca muebles, objetos ni jugadores.
   for (const decoration of state.floorDecorations) drawFloorDecoration(ctx, decoration);

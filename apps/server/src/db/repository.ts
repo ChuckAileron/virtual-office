@@ -166,12 +166,12 @@ export class Repository {
   }
 
   async addObject(code: string, type: string, x: number, y: number, perspective: 'front' | 'side' = 'front', flipped = false): Promise<PlacedObject> {
-    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : 'front';
+    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : (flipped ? 'front-flipped' : 'front');
     const r = await this.db.query(
       'INSERT INTO objects (room_code, type, x, y, orientation) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [code, type, x, y, orientation],
     );
-    return { id: Number(r.rows[0].id), type, x, y, perspective, flipped: perspective === 'side' && flipped };
+    return { id: Number(r.rows[0].id), type, x, y, perspective, flipped };
   }
 
   async removeObject(code: string, id: number): Promise<void> {
@@ -183,7 +183,7 @@ export class Repository {
   }
 
   async updateObjectPreset(code: string, id: number, type: string, x: number, y: number, perspective: 'front' | 'side' = 'front', flipped = false): Promise<void> {
-    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : 'front';
+    const orientation = perspective === 'side' ? (flipped ? 'side-flipped' : 'side') : (flipped ? 'front-flipped' : 'front');
     await this.db.query('UPDATE objects SET type = $1, x = $2, y = $3, orientation = $4 WHERE id = $5 AND room_code = $6', [type, x, y, orientation, id, code]);
   }
 
@@ -192,7 +192,7 @@ export class Repository {
     return r.rows.map((o) => ({
       id: Number(o.id), type: o.type, x: Number(o.x), y: Number(o.y),
       perspective: String(o.orientation).startsWith('side') ? 'side' : 'front',
-      flipped: o.orientation === 'side-flipped',
+      flipped: o.orientation === 'side-flipped' || o.orientation === 'front-flipped',
     }));
   }
 

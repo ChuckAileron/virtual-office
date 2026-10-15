@@ -144,8 +144,8 @@ describe('REST', () => {
     expect(roomTiles(meeting, T.CHAIR)).toBe(20);
     expect(room.objects.filter((o) => o.type === 'rug' && officeAt(room.offices, o.x, o.y)?.kind === 'conference')).toHaveLength(15);
     expect(objectAt('sofa_wide', rest.x + 5, rest.y + 2)).toBeTruthy();
-    expect(objectAt('sofa_vertical', rest.x + 2, rest.y + 5)).toBeTruthy();
-    expect(objectAt('sofa_vertical', rest.x + rest.w - 4, rest.y + 5)).toBeTruthy();
+    expect(objectAt('sofa_vertical', rest.x + 2, rest.y + 5)).toMatchObject({ flipped: true });
+    expect(objectAt('sofa_vertical', rest.x + rest.w - 4, rest.y + 5)).toMatchObject({ flipped: false });
     expect(room.tiles[lobby.y + 3][lobby.x + 2]).toBe(T.COUNTER);
     expect(objectAt('sofa_blue', lobby.x + lobby.w - 11, lobby.y + 2)).toBeTruthy();
     expect(objectAt('sofa_vertical_blue', lobby.x + lobby.w - 14, lobby.y + 3)).toBeTruthy();
