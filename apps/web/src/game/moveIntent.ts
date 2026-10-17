@@ -10,6 +10,8 @@ interface HeldKey {
   moved: boolean;
   /** `true` si se pulsó sin ninguna otra dirección mantenida (toque aislado). */
   alone: boolean;
+  /** Al cambiar de dirección mientras camina, empieza a moverse sin umbral de toque. */
+  immediate: boolean;
 }
 
 /**
@@ -17,9 +19,9 @@ interface HeldKey {
  * - un toque aislado y breve (menos de `tapMs`) solo gira hacia ese lado;
  * - una pulsación mantenida avanza de forma continua, reenviando `move` cada `sendMs`.
  *
- * Combinaciones: si ya hay una dirección mantenida, la nueva tecla solo toma el
- * relevo tras `takeoverMs`. Antes de eso no gira ni mueve, así que caminar a la
- * izquierda y rozar la derecha no produce el doble giro.
+  * El relevo entre direcciones es inmediato: al cambiar de tecla mientras camina,
+  * la nueva toma el control sin esperar `tapMs`. Los giros por toque solo existen estando quieto (`isWalking`),
+ * así que caminar y pulsar otra dirección no produce giros intermedios.
  */
 export class MoveIntent {
   private readonly held = new Map<Dir, HeldKey>();
@@ -30,13 +32,18 @@ export class MoveIntent {
     private readonly sink: MoveIntentSink,
     private readonly tapMs: number,
     private readonly sendMs: number,
-    private readonly takeoverMs: number = tapMs,
     private readonly now: () => number = () => performance.now(),
   ) {}
 
   press(dir: Dir): void {
     if (this.held.has(dir)) return;
-    this.held.set(dir, { start: this.now(), moved: false, alone: this.held.size === 0 });
+    const immediate = this.isWalking;
+    this.held.set(dir, {
+      start: this.now(),
+      moved: false,
+      alone: this.held.size === 0,
+      immediate,
+    });
   }
 
   release(dir: Dir): void {
@@ -78,9 +85,8 @@ export class MoveIntent {
     const state = this.held.get(current);
     if (!state) return;
     const now = this.now();
-    const threshold = state.alone ? this.tapMs : this.takeoverMs;
     if (!state.moved) {
-      if (now - state.start >= threshold) {
+      if (state.immediate || now - state.start >= this.tapMs) {
         state.moved = true;
         this.walking = true;
         this.sink.move(current);

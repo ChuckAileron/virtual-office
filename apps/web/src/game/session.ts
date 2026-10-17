@@ -5,7 +5,7 @@ import { createSocket, type GameSocket } from '../net/socket';
 import { VoiceController } from '../net/voice';
 import { AlarmController } from './alarm';
 import { BuildController } from './build';
-import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES, TAKEOVER_HOLD_MS, TAP_HOLD_MS } from './constants';
+import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES, TAP_HOLD_MS } from './constants';
 import { mouseToTile } from './coords';
 import { MoveIntent } from './moveIntent';
 import { invalidateTiles, render } from './renderer';
@@ -45,7 +45,6 @@ export class GameSession {
     { move: (dir) => this.sendMove(dir), turn: (dir) => this.sendTurn(dir) },
     TAP_HOLD_MS,
     MOVE_SEND_MS,
-    TAKEOVER_HOLD_MS,
   );
   private closed = false;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;

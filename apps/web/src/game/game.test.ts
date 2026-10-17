@@ -66,12 +66,11 @@ describe('estado e interpolación', () => {
 });
 
 describe('MoveIntent (toque vs. pulsación)', () => {
-  const makeIntent = (events: string[], now: () => number, takeover = 1000): MoveIntent =>
+  const makeIntent = (events: string[], now: () => number): MoveIntent =>
     new MoveIntent(
       { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
       140,
       110,
-      takeover,
       now,
     );
 
@@ -175,7 +174,7 @@ describe('MoveIntent (toque vs. pulsación)', () => {
     expect(events).toEqual(['turn:up']);
   });
 
-  it('una dirección añadida mientras caminas solo toma el relevo tras 1 s', () => {
+  it('al cambiar de dirección mientras camina, el movimiento empieza sin delay', () => {
     const events: string[] = [];
     let t = 0;
     const intent = makeIntent(events, () => t);
@@ -183,13 +182,9 @@ describe('MoveIntent (toque vs. pulsación)', () => {
     t = 200;
     intent.tick('left');
     intent.press('up');
-    // Antes de 1 s no se mueve en 'up' ni gira; sigue avanzando a la izquierda.
-    t = 900;
-    intent.tick('up');
-    expect(events).toEqual(['move:left']);
-    t = 1250; // supera los 1000 ms → relevo
     intent.tick('up');
     expect(events).toEqual(['move:left', 'move:up']);
+    expect(intent.isWalking).toBe(true);
   });
 });
 
