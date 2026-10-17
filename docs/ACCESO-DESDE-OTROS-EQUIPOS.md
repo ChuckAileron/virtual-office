@@ -5,6 +5,7 @@ misma red local. El servidor es el equipo donde ejecutaste `npm run up`.
 
 > La dirección es siempre **`https://<IP-del-servidor>/`**, donde `<IP>` la muestra
 > `npm run check` (en este proyecto, a modo de ejemplo: `https://192.168.1.7/`).
+> También puedes usar el nombre **`https://oficina.lan/`** (ver la sección 2.bis).
 
 ---
 
@@ -12,6 +13,7 @@ misma red local. El servidor es el equipo donde ejecutaste `npm run up`.
 
 - **Equipo servidor:** `npm run up` (una vez) y `npm run firewall` (una vez).
 - **Otros equipos:** abren `https://<IP>/`, aceptan el certificado una vez y entran.
+- **Opcional:** en vez de la IP, abre `https://oficina.lan/` (sección 2.bis).
 
 ---
 
@@ -67,6 +69,32 @@ Si el otro equipo usa otra red, datos móviles o una VPN, no verá al servidor.
    - **Recomendado:** instala la CA (paso 3) para que no vuelva a aparecer.
 
 > Aunque aceptes el aviso, la conexión es **contexto seguro** y el micrófono/cámara funcionarán.
+
+---
+
+## 2.bis (Opcional) Entrar con el nombre `oficina.lan`
+
+En el equipo servidor puedes abrir **`https://oficina.lan/`** en lugar de la IP.
+Caddy ya sirve un certificado válido para ese nombre (mismo sitio que la IP), pero
+**cada equipo cliente debe resolver el nombre y confiar en la CA**:
+
+1. **Resolver el nombre** `oficina.lan` → IP del servidor:
+   - **Equipo servidor:** ya está en `C:\Windows\System32\drivers\etc\hosts`
+     (línea `192.168.1.7  oficina.lan`).
+   - **Otros equipos:** añade esa misma línea a su archivo `hosts`:
+     - **Windows:** `C:\Windows\System32\drivers\etc\hosts` (editar como administrador).
+     - **macOS / Linux:** `/etc/hosts` (con `sudo`).
+   - **Móviles / toda la red:** no suelen permitir editar `hosts`. Registra el nombre
+     en el DNS del router (búsqueda "DNS host override" o "local DNS"), apuntando
+     `oficina.lan` a la IP del servidor. Así no tocas cada dispositivo.
+
+2. **Confiar en la CA** en ese equipo (misma CA que usas para la IP): descarga
+   `https://oficina.lan/ca.crt` (o `https://192.168.1.7/ca.crt`) e impórtala como
+   entidad de certificación raíz de confianza (paso 3).
+
+> El nombre se define en `docker/Caddyfile` (`https://{$LAN_IP}, https://oficina.lan`).
+> Si cambias de nombre, edítalo ahí y vuelve a levantar Caddy (`npm run up` para
+> levantarlo de nuevo, o `docker compose restart caddy`).
 
 ---
 
@@ -149,3 +177,4 @@ al teléfono.
 | No pide cámara/micrófono | Contexto no seguro | Usa `https://` con la CA confiada |
 | Se ve pero no se oye | UDP bloqueado o `LAN_IP` incorrecta | `npm run firewall`; revisa con `npm run check` |
 | Dejó de funcionar tras reiniciar | IP cambió o stack apagado | `npm run up`; fija la IP o `npm run setup -- --force --ip <IP>` |
+| `oficina.lan` no carga, pero la IP sí | El nombre no se resuelve en ese equipo | Añade la línea al `hosts` del equipo o regístralo en el DNS del router (sección 2.bis) |

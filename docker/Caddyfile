@@ -5,7 +5,7 @@
 	default_sni {$LAN_IP}
 }
 
-https://{$LAN_IP} {
+https://{$LAN_IP}, https://oficina.lan {
 	tls internal
 
 	# Certificado raíz para instalarlo en cada equipo: https://<IP>/ca.crt

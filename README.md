@@ -38,13 +38,13 @@ Requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (o
 ```bash
 npm install
 npm run setup     # detecta tu IP de LAN y crea .env con secretos aleatorios
-npm run up        # docker compose up -d --build
+npm run up        # levanta Docker y lista los DNS efectivos de cada contenedor
 npm run check     # diagnóstico: contenedores, puertos y HTTPS
 ```
 
-Los demás equipos abren **`https://<IP-del-servidor>`** (la IP que muestra `npm run setup`). Guía paso a paso: **[docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md)**.
+Los demás equipos abren **`https://<IP-del-servidor>`** (la IP que muestra `npm run setup`) o, si registras el nombre, **`https://oficina.lan/`**. Guía paso a paso: **[docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md)**.
 
-Opcionalmente, puedes hacer que los contenedores consulten el DNS público de Quad9: añade `DNS_SERVER=9.9.9.9` a `.env` y recrea los servicios con `npm run up`. Por defecto se conserva el resolver DNS integrado de Docker (`127.0.0.11`).
+Todos los contenedores usan Quad9 (`9.9.9.9`, DNS clásico UDP/TCP 53) como DNS externo en cada arranque. Se mantiene el resolver interno de Docker (`127.0.0.11`) para nombres del stack como `postgres`, `server` y `janus`; las consultas externas se reenvían a Quad9. `npm run up` lista ambos en cada servicio al terminar de levantarlos. `9.9.9.9` es un servidor DNS, no una dirección web.
 
 Si la IP detectada no es la correcta (VPN, adaptadores virtuales): `npm run setup -- --force --ip 192.168.1.50`.
 
@@ -58,6 +58,10 @@ El navegador solo permite cámara y micrófono en un contexto seguro, por eso ha
    - **macOS**: abre con *Acceso a Llaveros*, agrégalo a *Sistema* y en *Obtener información* pon *Confiar siempre*.
    - **Linux/Chrome**: *Ajustes → Privacidad → Administrar certificados → Entidades → Importar*.
 3. Reinicia el navegador.
+
+### Nombre local `oficina.lan`
+
+Además de la IP, Caddy sirve el mismo sitio en **`https://oficina.lan/`** (nombre fijo definido en `docker/Caddyfile`). En el equipo servidor ya queda resuelto en el archivo `hosts`. Para los demás equipos hay que **resolver el nombre** (línea en su `hosts` o registro en el DNS del router) e **instalar la CA**, igual que con la IP. Detalles en [docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md) (sección 2.bis).
 
 ### Firewall y puertos
 
