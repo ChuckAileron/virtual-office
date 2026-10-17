@@ -109,12 +109,39 @@ describe('MoveIntent (toque vs. pulsación)', () => {
     intent.press('right');
     t = 200;
     intent.tick('right'); // empieza a moverse a la derecha
-    intent.press('up'); // nueva dirección dominante
+    intent.press('up'); // combinación: nueva dirección dominante, sin giro
     t = 260;
-    intent.release('up'); // toque corto → gira arriba
+    intent.release('up'); // toque corto, pero hay otra tecla mantenida → no gira
     t = 320;
     intent.tick('right'); // vuelve a moverse a la derecha
-    expect(events).toEqual(['move:right', 'turn:up', 'move:right']);
+    expect(events).toEqual(['move:right', 'move:right']);
+  });
+
+  it('no gira con toques cortos si se camina con otra tecla mantenida', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = new MoveIntent(
+      { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
+      140,
+      110,
+      () => t,
+    );
+    intent.press('left');
+    t = 200;
+    intent.tick('left'); // caminando a la izquierda
+    intent.press('right'); // pulsación corta a la derecha
+    t = 240;
+    intent.release('right'); // sin giro: es una combinación
+    expect(events).toEqual(['move:left']);
+    // Al soltar del todo la izquierda, un toque aislado sí gira.
+    t = 300;
+    intent.release('left');
+    events.length = 0;
+    t = 400;
+    intent.press('up');
+    t = 450;
+    intent.release('up');
+    expect(events).toEqual(['turn:up']);
   });
 });
 

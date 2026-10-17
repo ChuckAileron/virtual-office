@@ -277,14 +277,17 @@ export class GameSession {
       }
       if (isTyping()) return;
       if (e.key === 'Enter') { e.preventDefault(); this.focusChat?.(); return; }
-      const dir = KEY_TO_DIR[e.key];
-      if (dir) {
-        e.preventDefault();
-        this.keys.press(dir);
-        this.intent.press(dir);
-        const me = this.me();
-        if (me) me.dir = dir;
-      }
+        const dir = KEY_TO_DIR[e.key];
+        if (dir) {
+          e.preventDefault();
+          const combination = this.keys.current !== null;
+          this.keys.press(dir);
+          this.intent.press(dir);
+          const me = this.me();
+          // Con otra dirección ya pulsada no se gira al instante: el giro lo marca
+          // el movimiento, y así no se ve el doble giro al combinar teclas.
+          if (me && !combination) me.dir = dir;
+        }
     };
     const onKeyUp = (e: KeyboardEvent): void => {
       const dir = KEY_TO_DIR[e.key];
