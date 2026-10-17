@@ -5,7 +5,7 @@ import { createSocket, type GameSocket } from '../net/socket';
 import { VoiceController } from '../net/voice';
 import { AlarmController } from './alarm';
 import { BuildController } from './build';
-import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES, TAP_HOLD_MS } from './constants';
+import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES, TAKEOVER_HOLD_MS, TAP_HOLD_MS } from './constants';
 import { mouseToTile } from './coords';
 import { MoveIntent } from './moveIntent';
 import { invalidateTiles, render } from './renderer';
@@ -45,6 +45,7 @@ export class GameSession {
     { move: (dir) => this.sendMove(dir), turn: (dir) => this.sendTurn(dir) },
     TAP_HOLD_MS,
     MOVE_SEND_MS,
+    TAKEOVER_HOLD_MS,
   );
   private closed = false;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -280,13 +281,13 @@ export class GameSession {
         const dir = KEY_TO_DIR[e.key];
         if (dir) {
           e.preventDefault();
-          const combination = this.keys.current !== null;
+          const canTurn = this.keys.current === null && !this.intent.isWalking;
           this.keys.press(dir);
           this.intent.press(dir);
           const me = this.me();
-          // Con otra dirección ya pulsada no se gira al instante: el giro lo marca
-          // el movimiento, y así no se ve el doble giro al combinar teclas.
-          if (me && !combination) me.dir = dir;
+          // El giro optimista solo aplica estando quieto: caminando, la orientación
+          // la marca el movimiento, así no se ve el doble giro al combinar teclas.
+          if (me && canTurn) me.dir = dir;
         }
     };
     const onKeyUp = (e: KeyboardEvent): void => {

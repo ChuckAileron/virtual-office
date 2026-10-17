@@ -66,15 +66,19 @@ describe('estado e interpolación', () => {
 });
 
 describe('MoveIntent (toque vs. pulsación)', () => {
-  it('un toque breve solo gira; una pulsación mantenida avanza de forma continua', () => {
-    const events: string[] = [];
-    let t = 0;
-    const intent = new MoveIntent(
+  const makeIntent = (events: string[], now: () => number, takeover = 1000): MoveIntent =>
+    new MoveIntent(
       { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
       140,
       110,
-      () => t,
+      takeover,
+      now,
     );
+
+  it('un toque breve solo gira; una pulsación mantenida avanza de forma continua', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = makeIntent(events, () => t);
 
     // Toque breve: se suelta antes del umbral → solo gira.
     intent.press('left');
@@ -100,12 +104,7 @@ describe('MoveIntent (toque vs. pulsación)', () => {
   it('soltar una tecla corta mientras se mantiene otra no interrumpe el movimiento', () => {
     const events: string[] = [];
     let t = 0;
-    const intent = new MoveIntent(
-      { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
-      140,
-      110,
-      () => t,
-    );
+    const intent = makeIntent(events, () => t);
     intent.press('right');
     t = 200;
     intent.tick('right'); // empieza a moverse a la derecha
@@ -120,12 +119,7 @@ describe('MoveIntent (toque vs. pulsación)', () => {
   it('no gira con toques cortos si se camina con otra tecla mantenida', () => {
     const events: string[] = [];
     let t = 0;
-    const intent = new MoveIntent(
-      { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
-      140,
-      110,
-      () => t,
-    );
+    const intent = makeIntent(events, () => t);
     intent.press('left');
     t = 200;
     intent.tick('left'); // caminando a la izquierda
@@ -142,6 +136,60 @@ describe('MoveIntent (toque vs. pulsación)', () => {
     t = 450;
     intent.release('up');
     expect(events).toEqual(['turn:up']);
+  });
+
+  it('isWalking: al caminar no se gira, y al parar vuelve a permitirse', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = makeIntent(events, () => t);
+    expect(intent.isWalking).toBe(false);
+    intent.press('left');
+    t = 80;
+    intent.tick('left');
+    intent.release('left'); // toque corto estando quieto → gira
+    expect(events).toEqual(['turn:left']);
+    expect(intent.isWalking).toBe(false);
+
+    // Caminando: un toque a la derecha no gira aunque se pulse y suelte rápido.
+    events.length = 0;
+    t = 1000;
+    intent.press('left');
+    t = 1200;
+    intent.tick('left');
+    expect(intent.isWalking).toBe(true);
+    t = 1300;
+    intent.press('right');
+    t = 1360;
+    intent.release('right');
+    expect(events).toEqual(['move:left']);
+
+    // Al soltar la tecla de marcha deja de caminar y el siguiente toque sí gira.
+    t = 1400;
+    intent.release('left');
+    expect(intent.isWalking).toBe(false);
+    events.length = 0;
+    t = 1500;
+    intent.press('up');
+    t = 1560;
+    intent.release('up');
+    expect(events).toEqual(['turn:up']);
+  });
+
+  it('una dirección añadida mientras caminas solo toma el relevo tras 1 s', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = makeIntent(events, () => t);
+    intent.press('left');
+    t = 200;
+    intent.tick('left');
+    intent.press('up');
+    // Antes de 1 s no se mueve en 'up' ni gira; sigue avanzando a la izquierda.
+    t = 900;
+    intent.tick('up');
+    expect(events).toEqual(['move:left']);
+    t = 1250; // supera los 1000 ms → relevo
+    intent.tick('up');
+    expect(events).toEqual(['move:left', 'move:up']);
   });
 });
 
