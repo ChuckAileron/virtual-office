@@ -136,10 +136,25 @@ Detén con `Ctrl+C`. La infraestructura Docker se apaga con `npm run down`.
 
 ### Variables de entorno del servidor
 
+`ENVIRONMENT` selecciona la configuración de conexión a PostgreSQL. La comparación
+con `LOCAL` no distingue mayúsculas/minúsculas: `local`, `LOCAL` y `LoCaL` activan
+el modo local, que usa `DATABASE_URL`. Cualquier otro valor activa el modo cloud y
+requiere `DATABASE_USERNAME`, `DATABASE_PASSWORD` y `DATABASE_HOST` (o sus alias
+Railway `PGUSER`, `PGPASSWORD` y `PGHOST`); puerto y nombre de base
+se leen de `DATABASE_HOST`/`DATABASE_PORT`/`DATABASE_NAME` o de las variables
+estándar `PGHOST`/`PGPORT`/`PGDATABASE`. En cloud se requiere SSL por defecto
+(`DATABASE_SSLMODE=require`). En Railway define `ENVIRONMENT=PRODUCTION` y las
+credenciales de PostgreSQL (Railway también suele proporcionar `PGUSER` y
+`PGPASSWORD`, aceptadas como respaldo).
+
 | Variable | Descripción | Por defecto |
 |----------|-------------|-------------|
 | `PORT` | Puerto HTTP | `3000` |
-| `DATABASE_URL` | Conexión PostgreSQL | `postgresql://localhost:5432/office` |
+| `ENVIRONMENT` | Modo de conexión (`LOCAL`, sin distinguir mayúsculas; cualquier otro valor usa cloud) | `LOCAL` en `.env` local |
+| `DATABASE_URL` | URL PostgreSQL del modo local | `postgresql://localhost:5432/office` |
+| `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Credenciales obligatorias fuera de `LOCAL` (`PGUSER`/`PGPASSWORD` también aceptadas) | — |
+| `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME` | Destino cloud (`PGHOST`/`PGPORT`/`PGDATABASE` también aceptadas) | `DATABASE_HOST` requerido; puerto `5432`, base `office` |
+| `DATABASE_SSLMODE` | Modo TLS para PostgreSQL cloud | `require` |
 | `JWT_SECRET` | Secreto de sesiones (**obligatorio** en producción) | aleatorio en desarrollo |
 | `JANUS_PUBLIC_URL` | URL WebSocket de Janus que usa el navegador | `wss://<host>/janus` en Docker |
 | `JANUS_ROOM_SECRET` | Secreto para derivar identificadores y PIN de salas de Janus | `JWT_SECRET` |
@@ -179,3 +194,4 @@ Detén con `Ctrl+C`. La infraestructura Docker se apaga con `npm run down`.
 - Los secretos se generan aleatoriamente en `.env` (no lo subas a un repositorio).
 - La proximidad de voz la decide el servidor (evento `audible`), pero el cliente es quien se suscribe a las pistas: un cliente modificado podría suscribirse a más participantes de su espacio de trabajo. Es aceptable en una LAN de confianza.
 - Esta versión reemplaza la anterior en SQLite (carpeta `legacy/`); los datos antiguos no se migran automáticamente.
+- Para importar una base antigua, haz una copia de seguridad de PostgreSQL y ejecuta `npm run migrate:sqlite -- legacy/data/offices.db` (requiere Node.js 22.9+ y `DATABASE_URL` del PostgreSQL destino en `.env`). En Railway puedes usar `railway run npm run migrate:sqlite -- legacy/data/offices.db`; la base SQLite debe estar disponible localmente. Importa usuarios, salas, objetos y mascotas; no sobrescribe usuarios ni salas con conflictos.

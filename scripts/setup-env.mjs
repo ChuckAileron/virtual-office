@@ -36,7 +36,10 @@ if (existsSync(envPath) && !force) {
     raw.split(/\r?\n/).filter((l) => l.includes('=') && !l.startsWith('#')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
   );
   // Completamos los secretos que falten en un .env generado por una versión anterior.
-  const missing = Object.entries(SECRETS()).filter(([key]) => !current[key]);
+  const missing = [
+    ...(!current.ENVIRONMENT ? [['ENVIRONMENT', 'LOCAL']] : []),
+    ...Object.entries(SECRETS()).filter(([key]) => !current[key]),
+  ];
   if (missing.length) {
     writeFileSync(envPath, `${raw.replace(/\s*$/, '')}\n${missing.map(([key, value]) => `${key}=${value}`).join('\n')}\n`);
     console.log(`.env completado con ${missing.map(([key]) => key).join(' y ')}.`);
@@ -62,6 +65,7 @@ writeFileSync(
   envPath,
   [
     '# Generado por npm run setup. No lo subas al repositorio.',
+    'ENVIRONMENT=LOCAL',
     `LAN_IP=${ip}`,
     `POSTGRES_PASSWORD=${rand(16)}`,
     `JWT_SECRET=${rand(32)}`,

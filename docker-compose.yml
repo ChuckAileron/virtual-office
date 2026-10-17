@@ -53,6 +53,7 @@
       - floor_images:/app/data/floor-images
     environment:
       NODE_ENV: production
+      ENVIRONMENT: LOCAL
       PORT: 3000
       TRUST_PROXY: "true"
       DATABASE_URL: postgresql://office:${POSTGRES_PASSWORD}@postgres:5432/office

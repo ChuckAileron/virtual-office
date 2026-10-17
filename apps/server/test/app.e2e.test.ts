@@ -27,7 +27,7 @@ const sockets: Socket[] = [];
 const uploadsDir = mkdtempSync(path.join(os.tmpdir(), 'vo-floor-images-'));
 
 beforeAll(async () => {
-  const config = { ...loadConfig({ JWT_SECRET: 'test-secret', JANUS_ROOM_SECRET: 'test-room-secret', JANUS_PUBLIC_URL: 'wss://x/janus', PET_TICK_MS: '100000' }), uploadsDir };
+  const config = { ...loadConfig({ ENVIRONMENT: 'LOCAL', JWT_SECRET: 'test-secret', JANUS_ROOM_SECRET: 'test-room-secret', JANUS_PUBLIC_URL: 'wss://x/janus', PET_TICK_MS: '100000' }), uploadsDir };
   const { Pool } = newDb().adapters.createPg();
   const mod = await Test.createTestingModule({ imports: [AppModule.register(config)] })
     .overrideProvider(DB).useValue(new Pool())

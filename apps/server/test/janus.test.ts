@@ -5,6 +5,7 @@ import { JanusService, VIDEO_ROOM_PLUGIN } from '../src/realtime/janus.service';
 
 const fullConfig = () =>
   loadConfig({
+    ENVIRONMENT: 'LOCAL',
     JWT_SECRET: 'test-secret',
     JANUS_ROOM_SECRET: 'test-room-secret',
     JANUS_API_URL: 'http://janus:8088/janus',
@@ -63,7 +64,7 @@ describe('JanusService', () => {
   it('no toca la red cuando falta configuración (modo legado)', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const service = new JanusService(loadConfig({ JWT_SECRET: 'test-secret', JANUS_ROOM_SECRET: 'test-room-secret' }));
+    const service = new JanusService(loadConfig({ ENVIRONMENT: 'LOCAL', JWT_SECRET: 'test-secret', JANUS_ROOM_SECRET: 'test-room-secret' }));
     expect(service.enabled).toBe(false);
     await service.ensureRoom(100_000, 'pin', 'secret');
     expect(fetchMock).not.toHaveBeenCalled();

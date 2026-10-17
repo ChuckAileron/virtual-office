@@ -3,6 +3,7 @@ import * as path from 'node:path';
 
 export interface AppConfig {
   port: number;
+  environment: 'local' | 'cloud';
   databaseUrl: string;
   jwtSecret: string;
   janus: {
@@ -40,7 +41,25 @@ const num = (v: string | undefined, fallback: number) => {
 };
 
 export function loadConfig(env: Env = process.env): AppConfig {
-  const production = env.NODE_ENV === 'production';
+  const environment = env.ENVIRONMENT?.trim().toLowerCase() === 'local' ? 'local' : 'cloud';
+  const production = env.NODE_ENV === 'production' || environment === 'cloud';
+  let databaseUrl: string;
+  if (environment === 'local') {
+    databaseUrl = env.DATABASE_URL || 'postgresql://localhost:5432/office';
+  } else {
+    const username = env.DATABASE_USERNAME || env.PGUSER;
+    const password = env.DATABASE_PASSWORD || env.PGPASSWORD;
+    if (!username || !password) {
+      throw new Error('DATABASE_USERNAME y DATABASE_PASSWORD son obligatorias fuera de LOCAL');
+    }
+    const host = env.DATABASE_HOST || env.PGHOST;
+    if (!host) throw new Error('DATABASE_HOST o PGHOST es obligatorio fuera de LOCAL');
+    const port = num(env.DATABASE_PORT || env.PGPORT, 5432);
+    const database = env.DATABASE_NAME || env.PGDATABASE || 'office';
+    const url = new URL(`postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}`);
+    url.searchParams.set('sslmode', env.DATABASE_SSLMODE || 'require');
+    databaseUrl = url.toString();
+  }
   let jwtSecret = env.JWT_SECRET;
   if (!jwtSecret) {
     if (production) throw new Error('JWT_SECRET es obligatorio en producción');
@@ -49,7 +68,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
   }
   return {
     port: num(env.PORT, 3000),
-    databaseUrl: env.DATABASE_URL || 'postgresql://localhost:5432/office',
+    environment,
+    databaseUrl,
     jwtSecret,
     janus: {
       publicUrl: env.JANUS_PUBLIC_URL || null,

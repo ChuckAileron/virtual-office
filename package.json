@@ -15,6 +15,7 @@
     "build": "npm run build -w @vo/shared && npm run build -w @vo/server && npm run build -w @vo/web",
     "typecheck": "npm run build -w @vo/shared && npm run typecheck -w @vo/server && npm run typecheck -w @vo/web",
     "test": "npm run build -w @vo/shared && npm test -w @vo/shared && npm test -w @vo/server && npm test -w @vo/web",
+    "migrate:sqlite": "node --env-file-if-exists=.env scripts/migrate-sqlite-to-postgres.mjs",
     "dev:server": "npm run build -w @vo/shared && npm run dev -w @vo/server",
     "dev:web": "npm run dev -w @vo/web",
     "dev:lan": "node scripts/dev-lan.mjs",

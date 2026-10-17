@@ -91,6 +91,7 @@ const databaseUrl = process.env.DATABASE_URL ?? `postgresql://office:${env.POSTG
 
 if (runServer) {
   run('server', ['run', 'dev:server'], {
+    ENVIRONMENT: 'LOCAL',
     LAN_IP: ip,
     DATABASE_URL: databaseUrl,
     ...(dockerReady ? { JANUS_API_URL: 'http://localhost:8088/janus' } : {}),
