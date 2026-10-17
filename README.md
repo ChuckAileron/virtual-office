@@ -90,6 +90,48 @@ npm run down
 
 Los datos quedan en el volumen `pgdata`. Para borrarlos: `docker compose down -v`.
 
+## Despliegue en un servidor público (Hetzner)
+
+Para publicar la app en Internet con un dominio propio y HTTPS de Let's Encrypt
+(la CA interna de Caddy es solo para redes locales), hay una capa de producción
+que se aplica encima del `docker-compose.yml` de siempre:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hetzner.yml up -d --build
+```
+
+Ejecuta este comando en el VPS, desde `/opt/virtual-office`. No requiere
+instalar Node.js ni npm en el servidor.
+
+> El prompt `root@virtual-office` es el mismo servidor: bash muestra el
+> *hostname*, no la IP. Instala y despliega ahí normalmente.
+
+Instalación de Docker en el VPS (dentro de la consola SSH/web de Hetzner). Ejecuta
+cada comando por separado y espera a que termine antes de pegar el siguiente.
+En Ubuntu 26.04, el repositorio oficial de Docker todavía puede no publicar una
+versión; instala los paquetes disponibles en Ubuntu:
+
+```bash
+apt update
+apt install -y docker.io docker-compose-v2
+systemctl enable --now docker
+docker --version
+docker compose version     # debe ser >= 2.24
+```
+
+Si añadiste antes el repositorio de Docker y `apt update` falla indicando que
+no hay archivo `Release` para Ubuntu 26.04, bórralo y actualiza la lista de
+paquetes antes de instalar:
+
+```bash
+rm /etc/apt/sources.list.d/docker.list
+apt update
+```
+
+Cambia la URL de Janus a `wss://<dominio>/janus` y usa la IP **pública** del
+servidor en `LAN_IP` (Janus la anuncia para el audio/video). Guía completa:
+**[docs/DEPLOY-HETZNER.md](docs/DEPLOY-HETZNER.md)**.
+
 ## Desarrollo (sin Docker para la app)
 
 Necesitas un PostgreSQL accesible. Janus WebRTC Gateway forma parte del despliegue Docker.

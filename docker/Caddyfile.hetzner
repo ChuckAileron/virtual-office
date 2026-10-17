@@ -1,0 +1,27 @@
+# Caddy para despliegue público (Hetzner).
+#
+# En la LAN el certificado lo emite la CA interna de Caddy (`tls internal`) y los
+# navegadores se conectan por IP. En un servidor público hay un dominio con DNS
+# real, así que Caddy pide el certificado directamente a Let's Encrypt (HTTP-01,
+# puerto 80) y los clientes ya confían en él: no hay que instalar nada.
+#
+# Variables de entorno (las define docker-compose.hetzner.yml):
+#   SITE_ADDRESS  dominio, p. ej. oficina.example.com
+#   ACME_EMAIL    correo para avisos de caducidad del certificado
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Signaling WebRTC de Janus. reverse_proxy mantiene el upgrade a WebSocket.
+	handle /janus* {
+		reverse_proxy janus:8188
+	}
+
+	handle {
+		reverse_proxy server:3000
+	}
+}

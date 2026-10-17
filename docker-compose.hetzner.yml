@@ -1,0 +1,30 @@
+# Capa de producción para Hetzner: se aplica encima de docker-compose.yml.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.hetzner.yml up -d --build
+#
+# Qué cambia respecto al despliegue de LAN:
+#   - Caddy usa el dominio con Let's Encrypt en lugar de la CA interna.
+#   - El navegador abre Janus por wss://<dominio>/janus (no por IP).
+#   - La API (3000) deja de publicarse en Internet: solo Caddy la alcanza por la
+#     red interna de Compose.
+#   - LAN_IP pasa a ser la IP pública del servidor, que es la que Janus anuncia
+#     en sus candidatas ICE (--nat-1-1).
+#
+# Requiere Docker Compose >= 2.24 por el tag `!override` en `ports`.
+
+services:
+  caddy:
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Define SITE_ADDRESS (dominio) en .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Define ACME_EMAIL en .env}
+    volumes:
+      # Compose fusiona `volumes` por ruta destino, así que esto sustituye al
+      # Caddyfile de la LAN en lugar de montar dos ficheros en el mismo sitio.
+      - ./docker/Caddyfile.hetzner:/etc/caddy/Caddyfile:ro
+
+  server:
+    # `!override` vacía la lista heredada: sin él, Compose fusionaría los puertos
+    # y el 3000 seguiría publicado en 0.0.0.0, sin HTTPS y saltándose Caddy.
+    ports: !override []
+    environment:
+      JANUS_PUBLIC_URL: ${JANUS_PUBLIC_URL:?Define JANUS_PUBLIC_URL (wss://<dominio>/janus) en .env}
