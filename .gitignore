@@ -30,4 +30,16 @@ BUGS.txt
 docs/screenshots-asis/
 docs/screenshots-tobe/
 
-assets/
+assets/*
+!assets/interiores-canvas-grid-67x70/
+assets/interiores-canvas-grid-67x70/*
+!assets/interiores-canvas-grid-67x70/assets/
+assets/interiores-canvas-grid-67x70/assets/*
+!assets/interiores-canvas-grid-67x70/assets/desk.png
+!assets/interiores-canvas-grid-67x70/assets/bookshelf.png
+!assets/interiores-canvas-grid-67x70/assets/chair.png
+!assets/interiores-canvas-grid-67x70/assets/chair_blue.png
+!assets/interiores-canvas-grid-67x70/assets/sofa_beige.png
+!assets/interiores-canvas-grid-67x70/assets/sofa_blue.png
+!assets/interiores-canvas-grid-67x70/assets/sofa_vertical.png
+!assets/interiores-canvas-grid-67x70/assets/wood_tile.png

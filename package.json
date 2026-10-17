@@ -22,7 +22,7 @@
     "down": "docker compose down",
     "check": "node scripts/doctor.mjs",
     "firewall": "powershell -ExecutionPolicy Bypass -File scripts/firewall.ps1",
-    "hostname": "powershell -ExecutionPolicy Bypass -File scripts/hostname.ps1"
+    "hostname": "powershell -ExecutionPolicy Bypass -File scripts/hostname-windows.ps1"
   },
   "devDependencies": {
     "selfsigned": "^2.4.1"

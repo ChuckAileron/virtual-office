@@ -1,19 +1,5 @@
 #!/bin/sh
-# Registra el nombre local de la oficina virtual (oficina.lan por defecto) en el
-# archivo /etc/hosts de este equipo, apuntando a la IP de LAN del servidor. Asi
-# puedes abrir https://oficina.lan/ en lugar de https://<IP>/.
-#
-# Pensado para LOS EQUIPOS CLIENTE (Linux y macOS). El equipo servidor ya lo
-# tiene registrado. Recuerda instalar la CA de Caddy (descargala de
-# https://oficina.lan/ca.crt) para que el navegador no muestre el aviso.
-#
-# Uso:
-#   sudo ./scripts/hostname.sh --ip 192.168.1.7
-#   sudo ./scripts/hostname.sh --ip 192.168.1.7 --name oficina.lan
-#   sudo ./scripts/hostname.sh --remove
-#
-# Si no indicas --ip, se lee LAN_IP de .env (cuando el script esta dentro del
-# repositorio) o se te pide por consola. Se reejecuta con sudo si hace falta.
+# Implementacion compartida por hostname-linux.sh y hostname-macos.command.
 set -eu
 
 NAME='oficina.lan'
@@ -22,7 +8,7 @@ REMOVE=0
 
 usage() {
   cat <<'EOF'
-Uso: hostname.sh [opciones] [IP]
+Uso: hostname-unix.sh --ip <IP-servidor> [opciones]
 
   -i, --ip <IP>      IP de LAN del servidor (obligatoria salvo con --remove).
   -n, --name <host>  Nombre a registrar (por defecto: oficina.lan).
@@ -53,20 +39,6 @@ while [ $# -gt 0 ]; do
     *) if [ -z "$IP" ]; then IP=$1; shift; else echo "Argumento de sobra: $1" >&2; usage; exit 1; fi ;;
   esac
 done
-
-# Lee LAN_IP de .env si el script vive dentro del repositorio.
-if [ -z "$IP" ] && [ "$REMOVE" -eq 0 ]; then
-  HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-  if [ -f "$HERE/../.env" ]; then
-    IP=$(grep -E '^LAN_IP=' "$HERE/../.env" | head -n1 | cut -d= -f2- | tr -d ' \r')
-  fi
-fi
-
-# Pide la IP si sigue faltando.
-if [ -z "$IP" ] && [ "$REMOVE" -eq 0 ]; then
-  printf 'IP de LAN del servidor (por ejemplo 192.168.1.7): ' >&2
-  read -r IP || true
-fi
 
 if [ "$REMOVE" -eq 0 ]; then
   case "$IP" in
@@ -120,5 +92,30 @@ case "$(uname -s)" in
     ;;
 esac
 
-echo ''
-echo "Listo: abre https://$NAME/ (instala la CA de Caddy desde https://$NAME/ca.crt si el navegador avisa)."
+if [ "$REMOVE" -eq 0 ]; then
+  CA_TMP=$(mktemp)
+  trap 'rm -f "$TMP" "$CA_TMP"' EXIT
+  # La omision de validacion TLS solo se usa para descargar inicialmente la CA.
+  curl -kfsS "https://$NAME/ca.crt" -o "$CA_TMP"
+  case "$(uname -s)" in
+    Darwin)
+      security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$CA_TMP"
+      ;;
+    Linux)
+      if command -v update-ca-certificates >/dev/null 2>&1; then
+        mkdir -p /usr/local/share/ca-certificates
+        install -m 0644 "$CA_TMP" /usr/local/share/ca-certificates/oficina-virtual.crt
+        update-ca-certificates
+      elif command -v update-ca-trust >/dev/null 2>&1; then
+        mkdir -p /etc/pki/ca-trust/source/anchors
+        install -m 0644 "$CA_TMP" /etc/pki/ca-trust/source/anchors/oficina-virtual.crt
+        update-ca-trust extract
+      else
+        echo 'No se encontro herramienta de certificados (update-ca-certificates/update-ca-trust).' >&2
+        exit 1
+      fi
+      ;;
+  esac
+  echo 'CA de Caddy descargada e instalada como raiz de confianza.'
+  echo "Listo: abre https://$NAME/"
+fi

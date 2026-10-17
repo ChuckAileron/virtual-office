@@ -81,21 +81,26 @@ Caddy ya sirve un certificado válido para ese nombre (mismo sitio que la IP), p
 1. **Resolver el nombre** `oficina.lan` → IP del servidor:
    - **Equipo servidor:** ya está en `C:\Windows\System32\drivers\etc\hosts`
      (línea `192.168.1.7  oficina.lan`).
-   - **Otros equipos:** usa el script de tu sistema (cópialo desde el repositorio
-     del servidor) indicando la IP del servidor:
-     - **Windows:** `scripts\hostname.ps1`
-       ```powershell
-       powershell -ExecutionPolicy Bypass -File hostname.ps1 -Ip 192.168.1.7
-       ```
-     - **Linux:** `scripts/hostname.sh`
-       ```sh
-       sudo sh hostname.sh --ip 192.168.1.7
-       ```
-     - **macOS:** `scripts/hostname.command` (doble clic en Finder) o `scripts/hostname.sh`
-       ```sh
-       chmod +x hostname.command && ./hostname.command --ip 192.168.1.7
-       ```
-     - Para **quitar** la entrada: añade `--remove` (Linux/macOS) o `-Remove` (Windows).
+    - **Otros equipos:** la asociación debe existir en cada equipo cliente; editar
+      `hosts` en el servidor no la comparte con otros dispositivos. Usa el configurador
+      de tu sistema desde la carpeta `scripts` del repositorio, indicando la IP LAN
+      del servidor (por ejemplo `192.168.1.7`). En Linux/macOS conserva juntos
+      el configurador y `hostname-unix.sh`:
+      - **Windows:** `scripts\hostname-windows.ps1` (PowerShell como administrador; solicita elevación automáticamente)
+        ```powershell
+        powershell -ExecutionPolicy Bypass -File .\hostname-windows.ps1 -Ip 192.168.1.7
+        ```
+      - **Linux:** `scripts/hostname-linux.sh`
+        ```sh
+        sh hostname-linux.sh --ip 192.168.1.7
+        ```
+      - **macOS:** `scripts/hostname-macos.command` (primero `chmod +x hostname-macos.command` para habilitar doble clic en Finder) o desde Terminal:
+        ```sh
+        chmod +x hostname-macos.command && ./hostname-macos.command --ip 192.168.1.7
+        ```
+      - Los scripts piden permisos de administrador cuando hacen falta, registran `oficina.lan`, descargan la CA actual desde el servidor y la instalan como raíz confiable.
+      - En Windows se escribe en `C:\Windows\System32\drivers\etc\hosts`, que no lleva extensión. No guardes el archivo como `hosts.txt`. La IP debe ser accesible desde el cliente: una IP LAN como `192.168.1.7` normalmente solo funciona dentro de esa red (o por VPN); para otros dispositivos de la red, configura el DNS del router.
+      - Para **quitar** solo la entrada de hosts: añade `--remove` (Linux/macOS) o `-Remove` (Windows).
      - **A mano**, si lo prefieres: añade la línea `192.168.1.7  oficina.lan` a
        `C:\Windows\System32\drivers\etc\hosts` (Windows, como administrador) o
        `/etc/hosts` (macOS/Linux, con `sudo`).
@@ -103,9 +108,9 @@ Caddy ya sirve un certificado válido para ese nombre (mismo sitio que la IP), p
      en el DNS del router (búsqueda "DNS host override" o "local DNS"), apuntando
      `oficina.lan` a la IP del servidor. Así no tocas cada dispositivo.
 
-2. **Confiar en la CA** en ese equipo (misma CA que usas para la IP): descarga
+2. Los scripts anteriores instalan la CA automáticamente. Si lo haces manualmente, descarga
    `https://oficina.lan/ca.crt` (o `https://192.168.1.7/ca.crt`) e impórtala como
-   entidad de certificación raíz de confianza (paso 3).
+    e impórtala como entidad de certificación raíz de confianza (paso 3).
 
 > El nombre se define en `docker/Caddyfile` (`https://{$LAN_IP}, https://oficina.lan`).
 > Si cambias de nombre, edítalo ahí y vuelve a levantar Caddy (`npm run up` para
