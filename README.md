@@ -143,7 +143,9 @@ requiere `DATABASE_USERNAME`, `DATABASE_PASSWORD` y `DATABASE_HOST` (o sus alias
 Railway `PGUSER`, `PGPASSWORD` y `PGHOST`); puerto y nombre de base
 se leen de `DATABASE_HOST`/`DATABASE_PORT`/`DATABASE_NAME` o de las variables
 estándar `PGHOST`/`PGPORT`/`PGDATABASE`. En cloud se requiere SSL por defecto
-(`DATABASE_SSLMODE=require`). En Railway define `ENVIRONMENT=PRODUCTION` y las
+(`DATABASE_SSLMODE=require&uselibpqcompat=true`, TLS cifrado sin validar una CA
+autofirmada). Si el proveedor ofrece una CA verificable, usa
+`DATABASE_SSLMODE=verify-full` e instala/configura esa CA. En Railway define `ENVIRONMENT=PRODUCTION` y las
 credenciales de PostgreSQL (Railway también suele proporcionar `PGUSER` y
 `PGPASSWORD`, aceptadas como respaldo).
 
@@ -154,7 +156,7 @@ credenciales de PostgreSQL (Railway también suele proporcionar `PGUSER` y
 | `DATABASE_URL` | URL PostgreSQL del modo local | `postgresql://localhost:5432/office` |
 | `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Credenciales obligatorias fuera de `LOCAL` (`PGUSER`/`PGPASSWORD` también aceptadas) | — |
 | `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME` | Destino cloud (`PGHOST`/`PGPORT`/`PGDATABASE` también aceptadas) | `DATABASE_HOST` requerido; puerto `5432`, base `office` |
-| `DATABASE_SSLMODE` | Modo TLS para PostgreSQL cloud | `require` |
+| `DATABASE_SSLMODE` | Modo TLS para PostgreSQL cloud (`require` habilita compatibilidad libpq; `verify-full` valida certificado y hostname) | `require` |
 | `JWT_SECRET` | Secreto de sesiones (**obligatorio** en producción) | aleatorio en desarrollo |
 | `JANUS_PUBLIC_URL` | URL WebSocket de Janus que usa el navegador | `wss://<host>/janus` en Docker |
 | `JANUS_ROOM_SECRET` | Secreto para derivar identificadores y PIN de salas de Janus | `JWT_SECRET` |

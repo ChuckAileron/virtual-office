@@ -57,7 +57,11 @@ export function loadConfig(env: Env = process.env): AppConfig {
     const port = num(env.DATABASE_PORT || env.PGPORT, 5432);
     const database = env.DATABASE_NAME || env.PGDATABASE || 'office';
     const url = new URL(`postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}`);
-    url.searchParams.set('sslmode', env.DATABASE_SSLMODE || 'require');
+    const sslmode = env.DATABASE_SSLMODE || 'require';
+    url.searchParams.set('sslmode', sslmode);
+    // Railway puede servir una cadena con CA autofirmada. Pide TLS cifrado con
+    // semántica libpq para require; verify-full sigue disponible al aportar una CA.
+    if (sslmode.toLowerCase() === 'require') url.searchParams.set('uselibpqcompat', 'true');
     databaseUrl = url.toString();
   }
   let jwtSecret = env.JWT_SECRET;

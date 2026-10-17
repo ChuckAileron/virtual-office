@@ -23,6 +23,21 @@ describe('loadConfig environment mode', () => {
     expect(url.username).toBe('user%40example');
     expect(url.password).toBe('p%40ss%3Aword');
     expect(url.searchParams.get('sslmode')).toBe('require');
+    expect(url.searchParams.get('uselibpqcompat')).toBe('true');
+  });
+
+  it('allows strict certificate validation when a CA is configured', () => {
+    const config = loadConfig({
+      ENVIRONMENT: 'production',
+      DATABASE_HOST: 'db.example.test',
+      DATABASE_USERNAME: 'user',
+      DATABASE_PASSWORD: 'pass',
+      DATABASE_SSLMODE: 'verify-full',
+      JWT_SECRET: 'test',
+    });
+    const url = new URL(config.databaseUrl);
+    expect(url.searchParams.get('sslmode')).toBe('verify-full');
+    expect(url.searchParams.has('uselibpqcompat')).toBe(false);
   });
 
   it('requires username and password for cloud environments', () => {
