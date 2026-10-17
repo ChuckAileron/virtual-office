@@ -33,6 +33,25 @@ function floorImage(url: string): HTMLImageElement {
   return image;
 }
 
+/** Rectángulo visible en píxeles del mundo; sirve para descartar lo que queda fuera de cámara. */
+interface ViewRect { x0: number; y0: number; x1: number; y1: number; }
+
+const intersects = (v: ViewRect, x: number, y: number, w: number, h: number): boolean =>
+  x < v.x1 && x + w > v.x0 && y < v.y1 && y + h > v.y0;
+
+const roomVisible = (v: ViewRect, room: { x: number; y: number; w: number; h: number }, margin = TILE * 2): boolean =>
+  intersects(v, room.x * TILE - margin, room.y * TILE - margin, room.w * TILE + margin * 2, room.h * TILE + margin * 2);
+
+/** Margen para no descartar mobiliario cuyo sprite sobresale de su casilla. */
+const OBJECT_MARGIN = TILE * 6;
+
+// La capa base (suelos y paredes) se cachea por bloques de TILE_CHUNK casillas. Cada
+// fotograma solo se copian los bloques visibles, así el coste deja de crecer con el
+// tamaño del mapa y el personaje se mueve fluido aunque haya decenas de oficinas.
+const TILE_CHUNK = 16;
+interface TileCache { chunks: Map<number, HTMLCanvasElement>; woodHooked: boolean; }
+const tileCaches = new WeakMap<GameState, TileCache>();
+
 function roomKindAt(state: GameState, x: number, y: number): keyof typeof FLOORS {
   const o = officeAt(state.room.offices, x, y);
   return o ? o.kind : 'hall';
@@ -155,10 +174,11 @@ function drawWallCabinet(ctx: CanvasRenderingContext2D, px: number, py: number):
   ctx.fillStyle = '#d3c09c'; ctx.fillRect(px + 25, py + 12, 2, 3); ctx.fillRect(px + 34, py + 12, 2, 3);
 }
 
-function drawNorthWallFaces(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawNorthWallFaces(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): void {
   for (const room of state.room.offices) {
     if (room.kind === 'lobby') continue;
     const x = room.x * TILE, y = room.y * TILE, width = room.w * TILE, height = TILE * 3;
+    if (!intersects(view, x, y, width, height)) continue;
     ctx.fillStyle = '#242a30'; ctx.fillRect(x + 5, y + 7, width, height);
     ctx.fillStyle = '#30363b'; ctx.fillRect(x + 3, y + 4, width, height);
     ctx.fillStyle = '#e5dfc6'; ctx.fillRect(x, y, width, height);
@@ -171,8 +191,9 @@ function drawNorthWallFaces(ctx: CanvasRenderingContext2D, state: GameState): vo
 }
 
 /** Decoración fija de pared: no añade colisiones ni modifica la navegación. */
-function drawWallDecorations(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawWallDecorations(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): void {
   for (const room of state.room.offices) {
+    if (!roomVisible(view, room)) continue;
     if (room.kind === 'office') {
       drawWallArt(ctx, room.x * TILE + 40, room.y * TILE + 11);
       drawWallClock(ctx, (room.x + room.w) * TILE - 64, room.y * TILE + 12);
@@ -234,10 +255,11 @@ function drawCoffeeMachine(ctx: CanvasRenderingContext2D, px: number, py: number
   ctx.strokeStyle = '#60665b'; ctx.strokeRect(px + 15.5, py + 24, 3, 5);
 }
 
-function drawKitchenInterior(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawKitchenInterior(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): void {
   for (const room of state.room.offices) {
     if (room.kind !== 'kitchen') continue;
     const x = room.x * TILE, y = room.y * TILE;
+    if (!intersects(view, x, y, 207 + 40, 207)) continue;
     // Mesada posterior, con fregadero, cocina y cafetera en las anclas de la referencia.
     ctx.fillStyle = '#424f55'; ctx.fillRect(x + 40, y + 88, 207, 47);
     ctx.fillStyle = '#aeb8ae'; ctx.fillRect(x + 43, y + 90, 201, 40);
@@ -257,9 +279,10 @@ function drawKitchenInterior(ctx: CanvasRenderingContext2D, state: GameState): v
   }
 }
 
-function drawLobbyReception(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawLobbyReception(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): void {
   for (const room of state.room.offices) {
     if (room.kind !== 'lobby') continue;
+    if (!roomVisible(view, room)) continue;
     const x = (room.x - 1) * TILE + 96, y = (room.y - 1) * TILE + 120;
     drawReferenceCounter(ctx, x, y, 178, 45);
     drawReferenceCounter(ctx, x, y + 42, 42, 88);
@@ -294,9 +317,10 @@ function drawReferenceCounter(ctx: CanvasRenderingContext2D, x: number, y: numbe
   }
 }
 
-function drawRestCoffeeCounter(ctx: CanvasRenderingContext2D, state: GameState): void {
+function drawRestCoffeeCounter(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): void {
   for (const room of state.room.offices) {
     if (room.kind !== 'rest') continue;
+    if (!roomVisible(view, room)) continue;
     const x = (room.x + room.w) * TILE - 79, y = room.y * TILE + 145;
     drawReferenceCounter(ctx, x, y, 40, 36);
     drawCoffeeMachine(ctx, x + 6, y - 8);
@@ -397,12 +421,11 @@ function drawRoomTable(ctx: CanvasRenderingContext2D, x: number, y: number, widt
 
 function drawTileDetails(ctx: CanvasRenderingContext2D, state: GameState, t: number, x: number, y: number, tiles: Tiles): void {
   const px = x * TILE, py = y * TILE;
-  const kind = roomKindAt(state, x, y);
   if (t === T.DESK) {
     // El tablero ocupa cuatro tiles; el sprite incluye pantallas, teclado y patas.
     let start = x;
     while (tiles[y][start - 1] === T.DESK) start--;
-    if (x === start) ctx.drawImage((kind === 'boss' ? deskBoss : desk)(start + y), start * TILE, py - 24);
+    if (x === start) ctx.drawImage((roomKindAt(state, x, y) === 'boss' ? deskBoss : desk)(start + y), start * TILE, py - 24);
   } else if (t === T.TABLE) {
     if (tiles[y - 1]?.[x] === T.TABLE || tiles[y][x - 1] === T.TABLE) return;
     let width = 1, height = 1;
@@ -663,10 +686,13 @@ function drawReferenceRug(ctx: CanvasRenderingContext2D, x: number, y: number, w
 }
 
 /** Une los módulos persistidos del preset en las alfombras únicas de la maqueta. */
-function drawPresetRugs(ctx: CanvasRenderingContext2D, state: GameState): Set<number> {
+function drawPresetRugs(ctx: CanvasRenderingContext2D, state: GameState, view: ViewRect): Set<number> {
   const hidden = new Set<number>();
-  const rugs = new Map(state.objects.filter((object) => object.type === 'rug').map((object) => [`${object.x}:${object.y}`, object]));
+  let rugs: Map<string, GameState['objects'][number]> | null = null;
   for (const room of state.room.offices) {
+    if (room.kind !== 'conference' && room.kind !== 'rest' && room.kind !== 'lobby') continue;
+    if (!roomVisible(view, room, TILE * 6)) continue;
+    if (!rugs) rugs = new Map(state.objects.filter((object) => object.type === 'rug').map((object) => [`${object.x}:${object.y}`, object]));
     let positions: Array<[number, number]> = [];
     let rect: { x: number; y: number; w: number; h: number; color: string } | null = null;
     if (room.kind === 'conference') {
@@ -691,12 +717,53 @@ function drawPresetRugs(ctx: CanvasRenderingContext2D, state: GameState): Set<nu
       rect = { x: wx - 23, y: wy + 35, w: 335, h: 180, color: '#738990' };
     }
     if (!rect || positions.length === 0) continue;
-    const objects = positions.map(([x, y]) => rugs.get(`${x}:${y}`));
+    const rugMap = rugs;
+    const objects = positions.map(([x, y]) => rugMap.get(`${x}:${y}`));
     if (objects.some((object) => !object)) continue;
     drawReferenceRug(ctx, rect.x, rect.y, rect.w, rect.h, rect.color);
     for (const object of objects) if (object) hidden.add(object.id);
   }
   return hidden;
+}
+
+function chunkKey(cx: number, cy: number): number { return cy * 8192 + cx; }
+
+function buildTileChunk(state: GameState, cx: number, cy: number): HTMLCanvasElement {
+  const { tiles, size } = state.room;
+  const x0 = cx * TILE_CHUNK, y0 = cy * TILE_CHUNK;
+  const tw = Math.max(1, Math.min(TILE_CHUNK, size.width - x0));
+  const th = Math.max(1, Math.min(TILE_CHUNK, size.height - y0));
+  const canvas = document.createElement('canvas');
+  canvas.width = tw * TILE;
+  canvas.height = th * TILE;
+  const g = canvas.getContext('2d');
+  if (g) {
+    g.imageSmoothingEnabled = false;
+    g.translate(-x0 * TILE, -y0 * TILE);
+    for (let y = y0; y < y0 + th; y++) for (let x = x0; x < x0 + tw; x++) drawTileBase(g, state, tiles[y][x], x, y, tiles);
+  }
+  return canvas;
+}
+
+function tileChunk(state: GameState, cx: number, cy: number): HTMLCanvasElement {
+  let cache = tileCaches.get(state);
+  if (!cache) { cache = { chunks: new Map(), woodHooked: false }; tileCaches.set(state, cache); }
+  const key = chunkKey(cx, cy);
+  let chunk = cache.chunks.get(key);
+  if (!chunk) { chunk = buildTileChunk(state, cx, cy); cache.chunks.set(key, chunk); }
+  if (!cache.woodHooked) {
+    const wood = interiorImage('woodTile');
+    if (!interiorImageReady(wood)) {
+      cache.woodHooked = true;
+      wood.addEventListener('load', () => tileCaches.delete(state), { once: true });
+    }
+  }
+  return chunk;
+}
+
+/** Invalida la capa base cacheada (p. ej. al cambiar el estilo de suelo de una oficina). */
+export function invalidateTiles(state: GameState | null): void {
+  if (state) tileCaches.delete(state);
 }
 
 /** Dibuja un cuadro completo. Actualiza `state.cam`. */
@@ -722,21 +789,46 @@ export function render(
   ctx.save();
   ctx.translate(-state.cam.x, -state.cam.y);
 
-  const x0 = Math.max(0, Math.floor(camX / TILE)), x1 = Math.min(size.width - 1, Math.floor((camX + canvas.width) / TILE));
-  const y0 = Math.max(0, Math.floor(camY / TILE)), y1 = Math.min(size.height - 1, Math.floor((camY + canvas.height) / TILE));
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTileBase(ctx, state, tiles[y][x], x, y, tiles);
-  drawNorthWallFaces(ctx, state);
-  drawWallDecorations(ctx, state);
-  drawKitchenInterior(ctx, state);
-  drawLobbyReception(ctx, state);
-  drawRestCoffeeCounter(ctx, state);
+  const view: ViewRect = {
+    x0: state.cam.x, y0: state.cam.y,
+    x1: state.cam.x + canvas.width, y1: state.cam.y + canvas.height,
+  };
+
+  // Capa base desde caché por bloques: solo se reconstruye al cambiar el mapa, los estilos
+  // de suelo o al cargar la textura de madera. El coste por fotograma ya no crece con el mapa.
+  const chunkPx = TILE_CHUNK * TILE;
+  const chunkCols = Math.ceil(size.width / TILE_CHUNK);
+  const chunkRows = Math.ceil(size.height / TILE_CHUNK);
+  const cx0 = Math.max(0, Math.floor(view.x0 / chunkPx));
+  const cy0 = Math.max(0, Math.floor(view.y0 / chunkPx));
+  const cx1 = Math.min(chunkCols - 1, Math.floor((view.x1 - 1) / chunkPx));
+  const cy1 = Math.min(chunkRows - 1, Math.floor((view.y1 - 1) / chunkPx));
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+    ctx.drawImage(tileChunk(state, cx, cy), cx * chunkPx, cy * chunkPx);
+  }
+
+  drawNorthWallFaces(ctx, state, view);
+  drawWallDecorations(ctx, state, view);
+  drawKitchenInterior(ctx, state, view);
+  drawLobbyReception(ctx, state, view);
+  drawRestCoffeeCounter(ctx, state, view);
 
   // Imágenes de piso: cubren la textura base, pero nunca muebles, objetos ni jugadores.
-  for (const decoration of state.floorDecorations) drawFloorDecoration(ctx, decoration);
+  for (const decoration of state.floorDecorations) {
+    if (intersects(view, decoration.x * TILE, decoration.y * TILE, decoration.w * TILE, decoration.h * TILE)) {
+      drawFloorDecoration(ctx, decoration);
+    }
+  }
 
   // Alfombras se dibujan antes del mobiliario fijo para que nunca lo tapen.
-  const visible = state.objects.filter((o) => state.defs.has(o.type));
-  const referenceRugs = drawPresetRugs(ctx, state);
+  const visible = state.objects.filter((o) => {
+    const def = state.defs.get(o.type);
+    if (!def) return false;
+    if (intersects(view, o.x * TILE - OBJECT_MARGIN, o.y * TILE - OBJECT_MARGIN, def.w * TILE + OBJECT_MARGIN * 2, def.h * TILE + OBJECT_MARGIN * 2)) return true;
+    const room = officeAt(offices, o.x, o.y);
+    return room ? roomVisible(view, room) : false;
+  });
+  const referenceRugs = drawPresetRugs(ctx, state, view);
   visible
     .filter((o) => state.defs.get(o.type)!.layer === 'floor')
     .filter((o) => !referenceRugs.has(o.id))
@@ -747,6 +839,8 @@ export function render(
       ctx.drawImage(image, o.x * TILE, o.y * TILE);
     });
 
+  const x0 = Math.max(0, Math.floor(camX / TILE)), x1 = Math.min(size.width - 1, Math.floor((camX + canvas.width) / TILE));
+  const y0 = Math.max(0, Math.floor(camY / TILE)), y1 = Math.min(size.height - 1, Math.floor((camY + canvas.height) / TILE));
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTileDetails(ctx, state, tiles[y][x], x, y, tiles);
 
   // Silla frente al centro de cada escritorio (decorativa, debajo de los jugadores)
@@ -768,6 +862,7 @@ export function render(
     .forEach((o) => drawPlacedFurniture(ctx, state, o, state.defs.get(o.type)!));
 
   for (const o of offices) {
+    if (!roomVisible(view, o)) continue;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const cx = (o.x + o.w / 2) * TILE;

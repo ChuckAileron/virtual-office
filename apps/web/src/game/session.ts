@@ -7,7 +7,7 @@ import { AlarmController } from './alarm';
 import { BuildController } from './build';
 import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES } from './constants';
 import { mouseToTile } from './coords';
-import { render } from './renderer';
+import { invalidateTiles, render } from './renderer';
 import { chatBubble, createState, interpolate, KEY_TO_DIR, KeyStack, makePet, makePlayer, whereLabel, type GameState } from './state';
 
 export interface ChatLine {
@@ -127,6 +127,7 @@ export class GameSession {
       const index = this.state.floorStyles.findIndex((entry) => entry.officeId === style.officeId);
       if (index < 0) this.state.floorStyles.push(style);
       else this.state.floorStyles[index] = style;
+      invalidateTiles(this.state);
       this.emit();
     });
     s.on('pet_add', ({ pet }) => { this.state?.pets.set(pet.id, makePet(pet)); });
