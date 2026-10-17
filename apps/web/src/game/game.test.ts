@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cameraAxis, clamp, mouseToTile } from './coords';
 import { approach, chatBubble, interpolate, isMoving, KeyStack, makePlayer, whereLabel, type GameState } from './state';
+import { MoveIntent } from './moveIntent';
 import { canPlaceObject } from './placement';
 import { randomAppearance } from './appearance';
 import { sanitizeAppearance } from '@vo/shared';
@@ -61,6 +62,59 @@ describe('estado e interpolación', () => {
     expect(chatBubble('hola')).toBe('hola');
     expect(whereLabel([], 1, 1)).toBe('📍 Pasillo');
     expect(whereLabel([{ name: 'Oficina 1', x: 0, y: 0, w: 5, h: 5 } as never], 2, 2)).toMatch(/📍/);
+  });
+});
+
+describe('MoveIntent (toque vs. pulsación)', () => {
+  it('un toque breve solo gira; una pulsación mantenida avanza de forma continua', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = new MoveIntent(
+      { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
+      140,
+      110,
+      () => t,
+    );
+
+    // Toque breve: se suelta antes del umbral → solo gira.
+    intent.press('left');
+    t = 80;
+    intent.tick('left');
+    intent.release('left');
+    expect(events).toEqual(['turn:left']);
+
+    // Pulsación mantenida: avanza cada sendMs y no gira al soltar.
+    events.length = 0;
+    t = 1000;
+    intent.press('up');
+    t = 1200; // supera el umbral → primer avance
+    intent.tick('up');
+    t = 1300; // aún no pasan 110ms
+    intent.tick('up');
+    t = 1320; // segundo avance
+    intent.tick('up');
+    intent.release('up');
+    expect(events).toEqual(['move:up', 'move:up']);
+  });
+
+  it('soltar una tecla corta mientras se mantiene otra no interrumpe el movimiento', () => {
+    const events: string[] = [];
+    let t = 0;
+    const intent = new MoveIntent(
+      { move: (d) => events.push(`move:${d}`), turn: (d) => events.push(`turn:${d}`) },
+      140,
+      110,
+      () => t,
+    );
+    intent.press('right');
+    t = 200;
+    intent.tick('right'); // empieza a moverse a la derecha
+    intent.press('up'); // nueva dirección dominante
+    t = 260;
+    intent.release('up'); // toque corto → gira arriba
+    t = 320;
+    intent.tick('right'); // vuelve a moverse a la derecha
+    expect(events).toEqual(['move:right', 'turn:up', 'move:right']);
   });
 });
 

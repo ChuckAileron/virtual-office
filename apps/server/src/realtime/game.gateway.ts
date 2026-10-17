@@ -6,7 +6,7 @@ import { OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
 import type { Server } from 'socket.io';
 import {
   ACCESSORY_CATALOG, CATALOG_LIST, DIRS, FLOOR_IMAGE_URL_PATTERN, GAME, MAX_FLOOR_DECORATIONS,
-  PET_COLORS, PET_KINDS, T, canConvene, floorDecorationFitsOffice, formatCode, isWalkable, meetingHead, meetingSeats, officeAt, styleAllowed,
+  PET_COLORS, PET_KINDS, T, canConvene, canStand, floorDecorationFitsOffice, formatCode, meetingHead, meetingSeats, officeAt, styleAllowed,
   sanitizeAccessories, sanitizeAppearancePatch, stepPet, supportsSideView, validatePet, validatePlacement, rebuildBlocked,
   type ClientToServerEvents, type Dir, type PlayerView, type Seat, type ServerToClientEvents,
 } from '@vo/shared';
@@ -118,13 +118,22 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       const d = DIRS[data?.dir];
       const now = Date.now();
       if (!d || now - p.lastMove < GAME.MOVE_INTERVAL_MS) return;
-      p.lastMove = now;
       p.dir = data.dir;
-      const nx = p.x + d[0];
-      const ny = p.y + d[1];
-      if (isWalkable(room.tiles, nx, ny) && !room.blocked.has(`${nx},${ny}`)) { p.x = nx; p.y = ny; }
+      // Avance continuo (sub-tile) proporcional al tiempo transcurrido, con tope por evento.
+      const dt = Math.min(GAME.MOVE_MAX_STEP / GAME.MOVE_SPEED, (now - p.lastMove) / 1000);
+      p.lastMove = now;
+      const step = GAME.MOVE_SPEED * dt;
+      const nx = p.x + d[0] * step;
+      const ny = p.y + d[1] * step;
+      if (canStand(room.tiles, room.blocked, nx, ny)) { p.x = nx; p.y = ny; }
       this.server.to(this.channel(room)).emit('moved', { id: p.id, x: p.x, y: p.y, dir: p.dir });
       this.pushAudible(room, p);
+    }));
+
+    socket.on('turn', guard((p, room, data) => {
+      if (!DIRS[data?.dir]) return;
+      p.dir = data.dir;
+      this.server.to(this.channel(room)).emit('moved', { id: p.id, x: p.x, y: p.y, dir: p.dir });
     }));
 
     socket.on('chat', guard((p, room, data) => {
@@ -209,7 +218,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const office = officeAt(room.offices, p.x, p.y);
       if (!office) return void socket.emit('build_error', { error: 'Debes estar dentro de una oficina para decorar su piso' });
-      if (data?.officeId !== office.id || (data.pattern !== 'solid' && data.pattern !== 'checker')
+      if (data?.officeId !== office.id || (data.pattern !== 'solid' && data.pattern !== 'checker' && data.pattern !== 'wood')
         || typeof data.color !== 'string' || !HEX_COLOR.test(data.color)) {
         return void socket.emit('build_error', { error: 'Estilo de piso inválido' });
       }

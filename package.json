@@ -1,6 +1,6 @@
 {
   "name": "virtual-office",
-  "version": "2.2.1",
+  "version": "2.3.2",
   "private": true,
   "description": "Oficina virtual 2D multijugador (React + NestJS + Socket.IO + Janus WebRTC + PostgreSQL)",
   "workspaces": [

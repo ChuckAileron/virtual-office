@@ -1,12 +1,13 @@
-import type { Accessories, AppearancePatch, FloorDecoration, OfficeFloorStyle, PlayerView, Role } from '@vo/shared';
+import type { Accessories, AppearancePatch, Dir, FloorDecoration, OfficeFloorStyle, PlayerView, Role } from '@vo/shared';
 import { GAME } from '@vo/shared';
 import { getConfig, uploadFloorImage } from '../net/api';
 import { createSocket, type GameSocket } from '../net/socket';
 import { VoiceController } from '../net/voice';
 import { AlarmController } from './alarm';
 import { BuildController } from './build';
-import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES } from './constants';
+import { ACTIVITY_THROTTLE_MS, BUBBLE_MS, CHAT_LINES, TAP_HOLD_MS } from './constants';
 import { mouseToTile } from './coords';
+import { MoveIntent } from './moveIntent';
 import { invalidateTiles, render } from './renderer';
 import { chatBubble, createState, interpolate, KEY_TO_DIR, KeyStack, makePet, makePlayer, whereLabel, type GameState } from './state';
 
@@ -37,10 +38,14 @@ export class GameSession {
   private canvas: HTMLCanvasElement | null = null;
   private raf = 0;
   private lastT = 0;
-  private lastMove = 0;
   private lastActivity = 0;
   private chatId = 0;
   private keys = new KeyStack();
+  private intent = new MoveIntent(
+    { move: (dir) => this.sendMove(dir), turn: (dir) => this.sendTurn(dir) },
+    TAP_HOLD_MS,
+    MOVE_SEND_MS,
+  );
   private closed = false;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private detachInput: (() => void) | null = null;
@@ -199,6 +204,9 @@ export class GameSession {
     if (t && this.socket.connected) this.socket.emit('chat', { text: t.slice(0, GAME.CHAT_MAX) });
   }
 
+  private sendMove(dir: Dir): void { if (this.socket.connected) this.socket.emit('move', { dir }); }
+  private sendTurn(dir: Dir): void { if (this.socket.connected) this.socket.emit('turn', { dir }); }
+
   /** Dispara una alarma de emergencia para todos; el mensaje es opcional. */
   sendAlarm(message: string): void {
     if (!this.socket.connected) return;
@@ -270,13 +278,19 @@ export class GameSession {
       if (isTyping()) return;
       if (e.key === 'Enter') { e.preventDefault(); this.focusChat?.(); return; }
       const dir = KEY_TO_DIR[e.key];
-      if (dir) { e.preventDefault(); this.keys.press(dir); }
+      if (dir) {
+        e.preventDefault();
+        this.keys.press(dir);
+        this.intent.press(dir);
+        const me = this.me();
+        if (me) me.dir = dir;
+      }
     };
     const onKeyUp = (e: KeyboardEvent): void => {
       const dir = KEY_TO_DIR[e.key];
-      if (dir) this.keys.release(dir);
+      if (dir) { this.keys.release(dir); this.intent.release(dir); }
     };
-    const onBlur = (): void => this.keys.clear();
+    const onBlur = (): void => { this.keys.clear(); this.intent.clear(); };
     const tile = (e: MouseEvent) => mouseToTile(e.clientX, e.clientY, canvas.getBoundingClientRect(), canvas.width, canvas.height, this.state?.cam ?? { x: 0, y: 0 });
     const onMouseMove = (e: MouseEvent): void => { if (this.build.open) this.build.setHover(tile(e)); };
     const onMouseLeave = (): void => this.build.setHover(null);
@@ -331,11 +345,7 @@ export class GameSession {
     if (!st || !canvas) return;
     const dt = Math.min(0.1, (now - this.lastT) / 1000);
     this.lastT = now;
-    const dir = this.keys.current;
-    if (dir && now - this.lastMove >= MOVE_SEND_MS && this.socket.connected) {
-      this.socket.emit('move', { dir });
-      this.lastMove = now;
-    }
+    this.intent.tick(this.keys.current);
     interpolate(st, dt);
     if (st.effects.length) st.effects = st.effects.filter((e) => e.until > now);
     if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {

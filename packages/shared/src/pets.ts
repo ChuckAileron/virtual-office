@@ -27,7 +27,7 @@ export function tileFree(room: PetRoom, x: number, y: number, self: Pet | null):
   const t = room.tiles[y]?.[x];
   if (t === undefined || !PET_TILES.has(t) || room.blocked.has(`${x},${y}`)) return false;
   for (const p of room.pets) if (p !== self && p.x === x && p.y === y) return false;
-  for (const p of room.players.values()) if (p.x === x && p.y === y) return false;
+  for (const p of room.players.values()) if (Math.floor(p.x) === x && Math.floor(p.y) === y) return false;
   return true;
 }
 

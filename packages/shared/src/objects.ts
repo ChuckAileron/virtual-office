@@ -146,7 +146,7 @@ export function validatePlacement(room: RoomState, type: unknown, x: unknown, y:
     if (footprint(od, o.x, o.y).some(([ox, oy]) => inCells(ox, oy))) return 'Ya hay un objeto aquí';
   }
   if (def.solid) {
-    for (const p of room.players.values()) if (inCells(p.x, p.y)) return 'Hay alguien en ese lugar';
+    for (const p of room.players.values()) if (inCells(Math.floor(p.x), Math.floor(p.y))) return 'Hay alguien en ese lugar';
     for (const p of room.pets ?? []) if (inCells(p.x, p.y)) return 'Hay una mascota en ese lugar';
     if (!keepsFloorConnected(room, collisionFootprint(room, { type: String(type), x: px, y: py }, def))) return 'Eso bloquearía el paso';
   }

@@ -2,11 +2,15 @@
 # archivo hosts de Windows, apuntando a la IP de LAN del servidor. Asi el equipo
 # servidor puede abrir https://oficina.lan/ en lugar de https://<IP>/.
 #
+# Vale tambien para LOS EQUIPOS CLIENTE: copia este archivo y pasale la IP del
+# servidor con -Ip (en un cliente no hay .env, asi que hay que indicarla).
+#
 # Los demas equipos deben hacer lo mismo en su propio archivo hosts (o registrar
 # el nombre en el DNS del router) e instalar la CA de Caddy.
 #
 # Uso (se auto-eleva si hace falta):
 #   powershell -ExecutionPolicy Bypass -File scripts/hostname.ps1
+#   powershell -ExecutionPolicy Bypass -File scripts/hostname.ps1 -Ip 192.168.1.7
 #   powershell -ExecutionPolicy Bypass -File scripts/hostname.ps1 -Name oficina.lan
 #   powershell -ExecutionPolicy Bypass -File scripts/hostname.ps1 -Remove
 param(

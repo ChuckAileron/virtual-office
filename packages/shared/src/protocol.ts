@@ -6,6 +6,10 @@ import type { Accessories, Appearance, Dir, FloorDecoration, FloorSize, Office, 
 /** Constantes de juego compartidas. */
 export const GAME = {
   MOVE_INTERVAL_MS: 90,
+  /** Velocidad de caminata en tiles por segundo (movimiento continuo, sin rejilla). */
+  MOVE_SPEED: 6,
+  /** Paso máximo por evento `move`, para evitar saltos si el cliente se retrasa. */
+  MOVE_MAX_STEP: 0.8,
   VOICE_RADIUS: 5,
   CHAT_RADIUS: 6,
   IDLE_MS: 5 * 60 * 1000,
@@ -93,6 +97,8 @@ export interface ClientToServerEvents {
   join: (p: { code: string }) => void;
   activity: () => void;
   move: (p: { dir: Dir }) => void;
+  /** Gira hacia una dirección sin desplazarse (toque breve en una tecla de movimiento). */
+  turn: (p: { dir: Dir }) => void;
   chat: (p: { text: string }) => void;
   place: (p: { kind: string; x: number; y: number; perspective?: 'front' | 'side'; flipped?: boolean }) => void;
   remove_object: (p: { id: number }) => void;

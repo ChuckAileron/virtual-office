@@ -61,7 +61,7 @@ El navegador solo permite cámara y micrófono en un contexto seguro, por eso ha
 
 ### Nombre local `oficina.lan`
 
-Además de la IP, Caddy sirve el mismo sitio en **`https://oficina.lan/`** (nombre fijo definido en `docker/Caddyfile`). En el equipo servidor ya queda resuelto en el archivo `hosts`. Para los demás equipos hay que **resolver el nombre** (línea en su `hosts` o registro en el DNS del router) e **instalar la CA**, igual que con la IP. Detalles en [docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md) (sección 2.bis).
+Además de la IP, Caddy sirve el mismo sitio en **`https://oficina.lan/`** (nombre fijo definido en `docker/Caddyfile`). En el equipo servidor ya queda resuelto en el archivo `hosts`. Para los demás equipos hay que **resolver el nombre** (línea en su `hosts` o registro en el DNS del router) e **instalar la CA**, igual que con la IP. Hay un script por sistema para añadir la entrada (`scripts/hostname.ps1` en Windows, `scripts/hostname.sh` en Linux, `scripts/hostname.command` en macOS); detalles en [docs/ACCESO-DESDE-OTROS-EQUIPOS.md](docs/ACCESO-DESDE-OTROS-EQUIPOS.md) (sección 2.bis).
 
 ### Firewall y puertos
 

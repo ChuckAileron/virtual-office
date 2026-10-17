@@ -227,6 +227,16 @@ export function officeAt(offices: Office[], x: number, y: number): Office | null
   return offices.find((o) => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h) ?? null;
 }
 
+/**
+ * ¿Puede situarse el centro de un personaje en la posición continua (x, y)?
+ * La posición es en tiles y puede ser fraccionaria; se comprueba la casilla que la contiene.
+ */
+export function canStand(tiles: Tiles, blocked: Set<string>, x: number, y: number): boolean {
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  return isWalkable(tiles, tx, ty) && !blocked.has(`${tx},${ty}`);
+}
+
 /** Recinto de entrada (lobby) donde aparecen los personajes al entrar. */
 export function lobbyOf(offices: Office[]): Office | null {
   return offices.find((o) => o.kind === 'lobby') ?? null;

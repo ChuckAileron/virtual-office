@@ -87,7 +87,7 @@ export interface FloorDecoration {
 export interface OfficeFloorStyle {
   officeId: number;
   color: string;
-  pattern: 'solid' | 'checker';
+  pattern: 'solid' | 'checker' | 'wood';
 }
 
 export interface Pet {

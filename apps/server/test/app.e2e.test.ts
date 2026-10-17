@@ -199,6 +199,10 @@ describe('REST', () => {
     const checker = { ...solid, color: '#ddaa66', pattern: 'checker' as const };
     await repository.saveOfficeFloorStyle(code, checker);
     expect(await repository.loadOfficeFloorStyles(code)).toEqual([checker]);
+
+    const wood = { ...solid, color: '#88aacc', pattern: 'wood' as const };
+    await repository.saveOfficeFloorStyle(code, wood);
+    expect(await repository.loadOfficeFloorStyles(code)).toEqual([wood]);
   });
 });
 

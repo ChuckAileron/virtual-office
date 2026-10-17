@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { T, canTalk, computeFloorSize, generateLayout, isWalkable, officeAt } from '../src';
+import { T, canStand, canTalk, computeFloorSize, generateLayout, isWalkable, officeAt } from '../src';
 
 const countTiles = (tiles: number[][], type: number) => tiles.flat().filter((t) => t === type).length;
 
@@ -232,5 +232,20 @@ describe('layout', () => {
     expect(canTalk(l.offices, { x: 1, y: 1 }, { x: 3, y: 1 }, 5)).toBe(true);
     expect(canTalk(l.offices, { x: 1, y: 1 }, { x: 10, y: 1 }, 5)).toBe(false);
     expect(canTalk(l.offices, { x: 1, y: 1 }, inO1a, 5)).toBe(false);
+  });
+
+  it('canStand acepta posiciones fraccionarias dentro de casillas transitables', () => {
+    const tiles = [
+      [T.WALL, T.WALL, T.WALL],
+      [T.WALL, T.FLOOR, T.WALL],
+      [T.WALL, T.WALL, T.WALL],
+    ];
+    const blocked = new Set<string>();
+    expect(canStand(tiles, blocked, 1, 1)).toBe(true);
+    expect(canStand(tiles, blocked, 1.5, 1.99)).toBe(true);
+    expect(canStand(tiles, blocked, 0.5, 1.5)).toBe(false); // cruza a una casilla de pared
+    expect(canStand(tiles, blocked, 2, 1)).toBe(false);
+    blocked.add('1,1');
+    expect(canStand(tiles, blocked, 1.5, 1.5)).toBe(false);
   });
 });

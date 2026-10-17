@@ -81,9 +81,24 @@ Caddy ya sirve un certificado válido para ese nombre (mismo sitio que la IP), p
 1. **Resolver el nombre** `oficina.lan` → IP del servidor:
    - **Equipo servidor:** ya está en `C:\Windows\System32\drivers\etc\hosts`
      (línea `192.168.1.7  oficina.lan`).
-   - **Otros equipos:** añade esa misma línea a su archivo `hosts`:
-     - **Windows:** `C:\Windows\System32\drivers\etc\hosts` (editar como administrador).
-     - **macOS / Linux:** `/etc/hosts` (con `sudo`).
+   - **Otros equipos:** usa el script de tu sistema (cópialo desde el repositorio
+     del servidor) indicando la IP del servidor:
+     - **Windows:** `scripts\hostname.ps1`
+       ```powershell
+       powershell -ExecutionPolicy Bypass -File hostname.ps1 -Ip 192.168.1.7
+       ```
+     - **Linux:** `scripts/hostname.sh`
+       ```sh
+       sudo sh hostname.sh --ip 192.168.1.7
+       ```
+     - **macOS:** `scripts/hostname.command` (doble clic en Finder) o `scripts/hostname.sh`
+       ```sh
+       chmod +x hostname.command && ./hostname.command --ip 192.168.1.7
+       ```
+     - Para **quitar** la entrada: añade `--remove` (Linux/macOS) o `-Remove` (Windows).
+     - **A mano**, si lo prefieres: añade la línea `192.168.1.7  oficina.lan` a
+       `C:\Windows\System32\drivers\etc\hosts` (Windows, como administrador) o
+       `/etc/hosts` (macOS/Linux, con `sudo`).
    - **Móviles / toda la red:** no suelen permitir editar `hosts`. Registra el nombre
      en el DNS del router (búsqueda "DNS host override" o "local DNS"), apuntando
      `oficina.lan` a la IP del servidor. Así no tocas cada dispositivo.

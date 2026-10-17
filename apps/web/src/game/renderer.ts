@@ -73,12 +73,22 @@ function drawCheckerTile(ctx: CanvasRenderingContext2D, px: number, py: number, 
   ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
 }
 
-function drawWoodTile(ctx: CanvasRenderingContext2D, px: number, py: number, x: number, y: number, base: string): void {
+function drawWoodTile(ctx: CanvasRenderingContext2D, px: number, py: number, x: number, y: number, base: string, tint?: string): void {
   const texture = interiorImage('woodTile');
   if (interiorImageReady(texture)) {
     let pattern = woodPatterns.get(ctx);
     if (!pattern) { pattern = ctx.createPattern(texture, 'repeat') ?? undefined; if (pattern) woodPatterns.set(ctx, pattern); }
-    if (pattern) { ctx.fillStyle = pattern; ctx.fillRect(px, py, TILE, TILE); return; }
+    if (pattern) {
+      ctx.fillStyle = pattern; ctx.fillRect(px, py, TILE, TILE);
+      if (tint) {
+        // Tiñe conservando la veta de la madera: el color cambia, la textura no.
+        ctx.save();
+        ctx.globalCompositeOperation = 'color';
+        ctx.fillStyle = tint; ctx.fillRect(px, py, TILE, TILE);
+        ctx.restore();
+      }
+      return;
+    }
   }
   const bandHeight = 8;
   for (let band = 0; band < TILE / bandHeight; band++) {
@@ -364,16 +374,14 @@ function drawTileBase(ctx: CanvasRenderingContext2D, state: GameState, t: number
   }
   const office = officeAt(state.room.offices, x, y);
   const style = office && state.floorStyles.find((entry) => entry.officeId === office.id);
-  let kind: keyof typeof FLOORS;
   if (style) {
+    if (style.pattern === 'wood') { drawWoodTile(ctx, px, py, x, y, style.color, style.color); return; }
     const dark = style.pattern === 'checker' && ((x - office!.x + y - office!.y) % 2 === 1);
     ctx.fillStyle = dark ? shade(style.color, -28) : style.color;
-    kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.LOBBY ? 'lobby' : t === T.KITCHEN ? 'kitchen' : t === T.REST ? 'rest' : t === T.OFFICE ? 'office' : 'hall';
-  } else {
-    kind = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.LOBBY ? 'lobby' : t === T.KITCHEN ? 'kitchen' : t === T.REST ? 'rest' : t === T.OFFICE ? 'office' : 'hall';
-    ctx.fillStyle = FLOORS[kind][(x + y) % 2 === 0 ? 0 : 1];
+    ctx.fillRect(px, py, TILE, TILE);
+    return;
   }
-  if (style) { ctx.fillRect(px, py, TILE, TILE); return; }
+  const kind: keyof typeof FLOORS = t === T.BOSS ? 'boss' : t === T.CONF ? 'conference' : t === T.LOBBY ? 'lobby' : t === T.KITCHEN ? 'kitchen' : t === T.REST ? 'rest' : t === T.OFFICE ? 'office' : 'hall';
   if (kind === 'hall') { drawCheckerTile(ctx, px, py, FLOORS.hall[(x + y) % 2]); return; }
   if (kind === 'kitchen') { drawCheckerTile(ctx, px, py, FLOORS.kitchen[(x + y) % 2]); return; }
   drawWoodTile(ctx, px, py, x, y, FLOORS[kind][0]);

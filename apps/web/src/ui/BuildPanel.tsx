@@ -165,8 +165,9 @@ export function BuildPanel({ session }: { session: GameSession }) {
               <div className="officeFloorPatterns">
                 <button type="button" className={floorPattern === 'solid' ? 'on' : ''} onClick={() => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: floorColor, pattern: 'solid' })}>Sólido</button>
                 <button type="button" className={floorPattern === 'checker' ? 'on' : ''} onClick={() => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: floorColor, pattern: 'checker' })}>Ajedrez</button>
+                <button type="button" className={floorPattern === 'wood' ? 'on' : ''} onClick={() => session.sendOfficeFloorStyle({ officeId: currentOffice.id, color: floorColor, pattern: 'wood' })}>Madera</button>
               </div>
-              <small>El patrón ajedrez usa una variante más oscura del color.</small>
+              <small>El ajedrez usa una variante más oscura del color; la madera conserva la veta tiñéndola con el color.</small>
             </div>
           )}
           <div id="buildItems">
