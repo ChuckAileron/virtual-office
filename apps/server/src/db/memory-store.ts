@@ -12,7 +12,7 @@ import type { Pool } from 'pg';
  */
 
 // Tablas cuyo contenido se persiste.
-const TABLES = ['users', 'rooms', 'objects', 'pets', 'floor_decorations', 'floor_styles'] as const;
+const TABLES = ['users', 'rooms', 'objects', 'pets', 'floor_decorations', 'floor_styles', 'office_owners'] as const;
 
 interface MemoryTable {
   find(): Array<Record<string, unknown>>;

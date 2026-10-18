@@ -8,6 +8,7 @@ export type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export interface Player extends Point {
   id: string;
   userId: number;
+  officeId: number | null;
   socket: GameSocket;
   room: RoomRuntime | null;
   name: string;
@@ -36,6 +37,8 @@ export interface RoomRuntime {
   pets: Pet[];
   floorDecorations: FloorDecoration[];
   floorStyles: OfficeFloorStyle[];
+  /** office_id -> user_id; la propiedad persiste aunque el usuario se desconecte. */
+  officeOwners: Map<number, number>;
   players: Map<string, Player>;
   blocked: Set<string>;
 }

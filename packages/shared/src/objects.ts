@@ -22,7 +22,7 @@ export const CATALOG: Record<string, ObjectDef> = {
   sofa_blue: { name: 'Sofá azul', w: 5, h: 2, solid: true },
   sofa_vertical: { name: 'Sofá lateral', w: 2, h: 4, solid: true },
   sofa_vertical_blue: { name: 'Sofá lateral azul', w: 2, h: 4, solid: true },
-  armchair: { name: 'Sillón', w: 1, h: 1, solid: true },
+  armchair: { name: 'Sillón', w: 1, h: 1, solid: false },
   coffee: { name: 'Cafetera', w: 1, h: 1, solid: true },
   cooler: { name: 'Dispensador de agua', w: 1, h: 1, solid: true },
   printer: { name: 'Impresora', w: 1, h: 1, solid: true },

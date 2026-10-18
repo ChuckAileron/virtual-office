@@ -72,6 +72,13 @@ const SCHEMA = [
     pattern TEXT NOT NULL,
     PRIMARY KEY (room_code, office_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS office_owners (
+    room_code TEXT NOT NULL,
+    office_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (room_code, office_id),
+    UNIQUE (room_code, user_id)
+  )`,
 ];
 
 const newCode = () => Array.from({ length: 8 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
@@ -120,6 +127,31 @@ export class Repository {
 
   async updateRole(id: number, role: Role): Promise<void> {
     await this.db.query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
+  }
+
+  async loadOfficeOwners(code: string): Promise<Array<{ officeId: number; userId: number }>> {
+    const r = await this.db.query('SELECT office_id, user_id FROM office_owners WHERE room_code = $1', [code]);
+    return r.rows.map((row) => ({ officeId: Number(row.office_id), userId: Number(row.user_id) }));
+  }
+
+  async removeOfficeAssignment(code: string, userId: number): Promise<void> {
+    await this.db.query('DELETE FROM office_owners WHERE room_code = $1 AND user_id = $2', [code, userId]);
+  }
+
+  /** Asignación permanente por espacio; un usuario/oficina no puede repetirse en la misma sala. */
+  async assignOffice(code: string, userId: number, officeIds: number[]): Promise<number | null> {
+    const existing = await this.db.query('SELECT office_id FROM office_owners WHERE room_code = $1 AND user_id = $2', [code, userId]);
+    if (existing.rows[0]) return Number(existing.rows[0].office_id);
+    for (const officeId of officeIds) {
+      const inserted = await this.db.query(
+        'INSERT INTO office_owners (room_code, office_id, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING office_id',
+        [code, officeId, userId],
+      );
+      if (inserted.rows[0]) return Number(inserted.rows[0].office_id);
+      const raced = await this.db.query('SELECT office_id FROM office_owners WHERE room_code = $1 AND user_id = $2', [code, userId]);
+      if (raced.rows[0]) return Number(raced.rows[0].office_id);
+    }
+    return null;
   }
 
   /** Cuentas con su rol, ordenadas por usuario; usada por el panel de administración. */

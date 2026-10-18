@@ -87,6 +87,7 @@ export class RoomsService implements OnModuleInit {
       await this.upgradeLegacyFurniturePresets(row.code, layout);
       await this.seedDefaultFurnishings(row.code, layout);
     }
+    await this.removeOfficeStorageFurniture(row.code, offices);
     const room: RoomRuntime = {
       code: row.code,
       name: row.name,
@@ -97,6 +98,7 @@ export class RoomsService implements OnModuleInit {
       pets: await this.repo.loadPets(row.code),
       floorDecorations: await this.repo.loadFloorDecorations(row.code),
       floorStyles: await this.repo.loadOfficeFloorStyles(row.code),
+      officeOwners: new Map((await this.repo.loadOfficeOwners(row.code)).map(({ officeId, userId }) => [officeId, userId])),
       players: new Map(),
       blocked: new Set(),
     };
@@ -115,10 +117,6 @@ export class RoomsService implements OnModuleInit {
       const top = room.y + 2, bottom = room.y + room.h - 3;
       switch (room.kind) {
         case 'office': {
-          const officeNumber = Number(room.name.match(/\d+/)?.[0] ?? room.id);
-          const bookshelfX = officeNumber % 2 === 0 ? left : right - 1;
-          add('bookshelf_tall', bookshelfX, top);
-          add(officeNumber % 3 === 0 ? 'cooler' : 'filing', left, bottom);
           break;
         }
         case 'boss':
@@ -194,6 +192,22 @@ export class RoomsService implements OnModuleInit {
       await this.repo.addObject(code, item.type, item.x, item.y, item.perspective ?? 'front', item.flipped ?? false);
       existingKeys.add(key);
       reserve(item);
+    }
+  }
+
+  /** Retira estantes, cajoneras y bebederos de las oficinas normales, incluidos presets ya guardados. */
+  private async removeOfficeStorageFurniture(code: string, offices: Layout['offices']): Promise<void> {
+    const officeRooms = offices.filter((room) => room.kind === 'office');
+    if (!officeRooms.length) return;
+    const removable = new Set(['bookshelf', 'bookshelf_tall', 'filing', 'cooler']);
+    for (const object of await this.repo.loadObjects(code)) {
+      if (!removable.has(object.type)) continue;
+      const def = defOf(object.type);
+      if (!def) continue;
+      const insideOffice = footprint(def, object.x, object.y).some(([x, y]) =>
+        officeRooms.some((room) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h),
+      );
+      if (insideOffice) await this.repo.removeObject(code, object.id);
     }
   }
 

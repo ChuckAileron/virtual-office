@@ -7,7 +7,7 @@ import type { Server } from 'socket.io';
 import {
   ACCESSORY_CATALOG, CATALOG_LIST, DIRS, FLOOR_IMAGE_URL_PATTERN, GAME, MAX_FLOOR_DECORATIONS,
   PET_COLORS, PET_KINDS, T, canConvene, canStand, floorDecorationFitsOffice, formatCode, meetingHead, meetingSeats, officeAt, styleAllowed,
-  sanitizeAccessories, sanitizeAppearancePatch, stepPet, supportsSideView, validatePet, validatePlacement, rebuildBlocked,
+  defOf, sanitizeAccessories, sanitizeAppearancePatch, stepPet, supportsSideView, validatePet, validatePlacement, rebuildBlocked,
   type ClientToServerEvents, type Dir, type PlayerView, type Seat, type ServerToClientEvents,
 } from '@vo/shared';
 import { AuthService } from '../auth/auth.service';
@@ -26,7 +26,7 @@ const cleanText = (s: unknown, max: number) =>
   String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 
 const view = (p: Player): PlayerView => ({
-  id: p.id, name: p.name, appearance: p.appearance, x: p.x, y: p.y, dir: p.dir, voice: p.voice, idle: p.idle, role: p.role,
+  id: p.id, name: p.name, appearance: p.appearance, x: p.x, y: p.y, dir: p.dir, voice: p.voice, idle: p.idle, role: p.role, officeId: p.officeId,
 });
 
 @WebSocketGateway()
@@ -64,43 +64,64 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
   private onConnection(socket: GameSocket) {
     const user = socket.data.user as UserRow;
     let player: Player | null = null;
+    let joining = false;
 
-    socket.on('join', (p) => {
-      if (player) return;
+    socket.on('join', async (p) => {
+      if (player || joining) return;
       const room = this.rooms.find(p?.code);
       if (!room) return void socket.emit('error', { error: 'Código de invitación inválido' });
-      const previous = this.online.get(user.id);
-      if (previous) {
-        this.removePlayer(previous);
-        previous.socket.emit('replaced');
-        previous.socket.disconnect(true);
+      joining = true;
+      try {
+        const previous = this.online.get(user.id);
+        if (previous) {
+          this.removePlayer(previous);
+          previous.socket.emit('replaced');
+          previous.socket.disconnect(true);
+        }
+        let assignedOfficeId: number | null = null;
+        if (user.role === 'admin') {
+          await this.repo.removeOfficeAssignment(room.code, user.id);
+          for (const [officeId, ownerId] of room.officeOwners) {
+            if (ownerId === user.id) room.officeOwners.delete(officeId);
+          }
+        } else {
+          assignedOfficeId = await this.repo.assignOffice(
+            room.code,
+            user.id,
+            room.offices.filter((office) => office.kind === 'office').map((office) => office.id),
+          );
+        }
+        if (assignedOfficeId !== null) room.officeOwners.set(assignedOfficeId, user.id);
+        const spawn = this.spawnPoint(room);
+        if (!spawn) return void socket.emit('error', { error: 'No hay espacio libre en el espacio de trabajo' });
+        const now = Date.now();
+        player = {
+          id: randomBytes(4).toString('hex'), userId: user.id, officeId: assignedOfficeId, socket, room, name: user.username,
+          appearance: user.appearance, role: user.role, x: spawn.x, y: spawn.y, dir: 'down', voice: false, idle: false,
+          lastMove: 0, lastActive: now, lastEdit: 0, lastLook: 0, lastAlarm: 0, audible: new Set(),
+        };
+        room.players.set(player.id, player);
+        this.online.set(user.id, player);
+        socket.emit('welcome', {
+          you: player.id,
+          assignedOfficeId,
+          room: { code: formatCode(room.code), name: room.name, size: room.size, tiles: room.tiles, offices: room.offices },
+          objects: room.objects,
+          catalog: CATALOG_LIST,
+          pets: room.pets,
+          floorDecorations: room.floorDecorations,
+          floorStyles: room.floorStyles,
+          petKinds: PET_KINDS.map((k) => ({ ...k })),
+          petColors: PET_COLORS.map((c) => ({ ...c })),
+          accessories: ACCESSORY_CATALOG,
+          players: [...room.players.values()].map(view),
+        });
+        socket.to(this.channel(room)).emit('joined', { player: view(player) });
+        socket.join(this.channel(room));
+        this.pushAudible(room, player);
+      } finally {
+        joining = false;
       }
-      const spawn = this.spawnPoint(room);
-      if (!spawn) return void socket.emit('error', { error: 'No hay espacio libre en el espacio de trabajo' });
-      const now = Date.now();
-      player = {
-        id: randomBytes(4).toString('hex'), userId: user.id, socket, room, name: user.username,
-        appearance: user.appearance, role: user.role, x: spawn.x, y: spawn.y, dir: 'down', voice: false, idle: false,
-        lastMove: 0, lastActive: now, lastEdit: 0, lastLook: 0, lastAlarm: 0, audible: new Set(),
-      };
-      room.players.set(player.id, player);
-      this.online.set(user.id, player);
-      socket.emit('welcome', {
-        you: player.id,
-        room: { code: formatCode(room.code), name: room.name, size: room.size, tiles: room.tiles, offices: room.offices },
-        objects: room.objects,
-        catalog: CATALOG_LIST,
-        pets: room.pets,
-        floorDecorations: room.floorDecorations,
-        floorStyles: room.floorStyles,
-        petKinds: PET_KINDS.map((k) => ({ ...k })),
-        petColors: PET_COLORS.map((c) => ({ ...c })),
-        accessories: ACCESSORY_CATALOG,
-        players: [...room.players.values()].map(view),
-      });
-      socket.to(this.channel(room)).emit('joined', { player: view(player) });
-      socket.join(this.channel(room));
-      this.pushAudible(room, player);
     });
 
     // Cada manejador exige haber entrado a un espacio de trabajo.
@@ -151,6 +172,8 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const error = validatePlacement(room, data?.kind, data?.x, data?.y);
       if (error) return void socket.emit('build_error', { error });
+      const def = defOf(data.kind)!;
+      if (!this.officeEditAllowed(p, room, data.x, data.y, def.w, def.h)) return;
       const canFaceSide = supportsSideView(data.kind);
       const perspective = canFaceSide && data.perspective === 'side' ? 'side' : 'front';
       const flipped = perspective === 'side' && data.flipped === true;
@@ -164,6 +187,9 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const idx = room.objects.findIndex((o) => o.id === data?.id);
       if (idx < 0) return void socket.emit('build_error', { error: 'Ese objeto ya no existe' });
+      const target = room.objects[idx];
+      const def = defOf(target.type);
+      if (!this.officeEditAllowed(p, room, target.x, target.y, def?.w ?? 1, def?.h ?? 1)) return;
       const [removed] = room.objects.splice(idx, 1);
       rebuildBlocked(room);
       await this.repo.removeObject(room.code, removed.id);
@@ -174,6 +200,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const error = validatePet(room, data?.kind, data?.color, data?.x, data?.y);
       if (error) return void socket.emit('build_error', { error });
+      if (!this.officeEditAllowed(p, room, data.x, data.y)) return;
       const pet = await this.repo.addPet(room.code, data.kind, data.color, data.x, data.y);
       room.pets.push(pet);
       this.server.to(this.channel(room)).emit('pet_add', { pet });
@@ -183,6 +210,8 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const idx = room.pets.findIndex((x) => x.id === data?.id);
       if (idx < 0) return void socket.emit('build_error', { error: 'Esa mascota ya no existe' });
+      const target = room.pets[idx];
+      if (!this.officeEditAllowed(p, room, target.x, target.y)) return;
       const [removed] = room.pets.splice(idx, 1);
       await this.repo.removePet(room.code, removed.id);
       this.server.to(this.channel(room)).emit('pet_remove', { id: removed.id });
@@ -200,6 +229,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!floorDecorationFitsOffice(room.offices, data?.x, data?.y, data?.w, data?.h)) {
         return void socket.emit('build_error', { error: 'La imagen debe quedar dentro de una oficina; revisa su tamaño en tiles' });
       }
+      if (!this.officeEditAllowed(p, room, data.x, data.y, data.w, data.h)) return;
       const decoration = await this.repo.addFloorDecoration(room.code, data.imageUrl, data.x, data.y, data.w, data.h);
       room.floorDecorations.push(decoration);
       this.server.to(this.channel(room)).emit('floor_decoration_add', { decoration });
@@ -209,6 +239,8 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const idx = room.floorDecorations.findIndex((d) => d.id === data?.id);
       if (idx < 0) return void socket.emit('build_error', { error: 'Esa imagen ya no existe' });
+      const target = room.floorDecorations[idx];
+      if (!this.officeEditAllowed(p, room, target.x, target.y, target.w, target.h)) return;
       const [removed] = room.floorDecorations.splice(idx, 1);
       await this.repo.removeFloorDecoration(room.code, removed.id);
       this.server.to(this.channel(room)).emit('floor_decoration_remove', { id: removed.id });
@@ -218,6 +250,7 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
       if (!this.editAllowed(p)) return;
       const office = officeAt(room.offices, p.x, p.y);
       if (!office) return void socket.emit('build_error', { error: 'Debes estar dentro de una oficina para decorar su piso' });
+      if (!this.officeEditAllowed(p, room, office.x + 1, office.y + 1)) return;
       if (data?.officeId !== office.id || (data.pattern !== 'solid' && data.pattern !== 'checker' && data.pattern !== 'wood')
         || typeof data.color !== 'string' || !HEX_COLOR.test(data.color)) {
         return void socket.emit('build_error', { error: 'Estilo de piso inválido' });
@@ -349,6 +382,20 @@ export class GameGateway implements OnGatewayInit, OnModuleDestroy {
     const now = Date.now();
     if (now - p.lastEdit < EDIT_THROTTLE_MS) return false;
     p.lastEdit = now;
+    return true;
+  }
+
+  /** Solo el usuario asignado puede modificar objetos dentro de una oficina normal. */
+  private officeEditAllowed(p: Player, room: RoomRuntime, x: number, y: number, w = 1, h = 1): boolean {
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        const office = officeAt(room.offices, x + dx, y + dy);
+        if (office?.kind === 'office' && room.officeOwners.get(office.id) !== p.userId) {
+          p.socket.emit('build_error', { error: 'Solo el dueño asignado puede decorar esta oficina' });
+          return false;
+        }
+      }
+    }
     return true;
   }
 

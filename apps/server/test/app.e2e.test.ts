@@ -91,7 +91,7 @@ describe('REST', () => {
     expect(r.status).toBe(201);
     expect((await request(base).get(`/api/rooms/${r.body.code}`)).body.name).toBe('Espacio 1');
     const objects = await app.get(Repository).loadObjects(normalizeCode(r.body.code));
-    expect(objects.some((object) => object.type === 'bookshelf_tall')).toBe(true);
+    expect(objects.some((object) => ['bookshelf', 'bookshelf_tall', 'filing', 'cooler'].includes(object.type))).toBe(false);
     const runtime = app.get(RoomsService).find(r.body.code)!;
     expect(objects.filter((object) => object.type === 'plant' && ['office', 'boss'].includes(officeAt(runtime.offices, object.x, object.y)?.kind ?? '')).length).toBe(0);
     expect((await request(base).get('/api/rooms/ZZZZ-ZZZZ')).status).toBe(404);
@@ -132,10 +132,10 @@ describe('REST', () => {
     const rest = room.offices.find((o) => o.kind === 'rest')!;
     const lobby = room.offices.find((o) => o.kind === 'lobby')!;
 
-    expect(objectAt('bookshelf_tall', office1.x + office1.w - 3, office1.y + 2)).toBeTruthy();
-    expect(objectAt('bookshelf_tall', office2.x + 1, office2.y + 2)).toBeTruthy();
-    expect(objectAt('filing', office1.x + 1, office1.y + office1.h - 3)).toBeTruthy();
-    expect(objectAt('cooler', office3.x + 1, office3.y + office3.h - 3)).toBeTruthy();
+    for (const office of [office1, office2, office3]) {
+      expect(room.objects.filter((object) => ['bookshelf', 'bookshelf_tall', 'filing', 'cooler'].includes(object.type)
+        && officeAt(room.offices, object.x, object.y)?.id === office.id)).toEqual([]);
+    }
     expect(room.objects.some((o) => o.type === 'rug' && ['office', 'boss'].includes(officeAt(room.offices, o.x, o.y)?.kind ?? ''))).toBe(false);
 
     const roomTiles = (zone: typeof meeting, tile: number) => room.tiles.slice(zone.y, zone.y + zone.h)
@@ -252,6 +252,70 @@ describe('Socket.IO', () => {
     const err = once<any>(a, 'build_error');
     a.emit('place', { kind: 'no-existe', x: 0, y: 0 });
     expect((await err).error).toBeTruthy();
+  });
+
+  it('asigna una oficina persistente por invitado y solo su dueño puede decorarla', async () => {
+    const ownerToken = await register('dueno_oficina');
+    const guestToken = await register('invitado_oficina');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${ownerToken}`).send({ name: 'Oficinas propias', offices: 2 })).body;
+
+    const owner = open(ownerToken);
+    const ownerWelcomePromise = once<any>(owner, 'welcome');
+    owner.emit('join', { code: room.code });
+    const ownerWelcome = await ownerWelcomePromise;
+    const guest = open(guestToken);
+    const guestWelcomePromise = once<any>(guest, 'welcome');
+    guest.emit('join', { code: room.code });
+    const guestWelcome = await guestWelcomePromise;
+
+    expect(ownerWelcome.assignedOfficeId).not.toBeNull();
+    expect(guestWelcome.assignedOfficeId).not.toBe(ownerWelcome.assignedOfficeId);
+    const offices = ownerWelcome.room.offices.filter((office: any) => office.kind === 'office');
+    const ownerOffice = offices.find((office: any) => office.id === ownerWelcome.assignedOfficeId);
+    const guestOffice = offices.find((office: any) => office.id === guestWelcome.assignedOfficeId);
+    expect(ownerOffice).toBeTruthy();
+    expect(guestOffice).toBeTruthy();
+
+    const overflowGuest = open(await register('full_room_guest'));
+    const overflowWelcomePromise = once<any>(overflowGuest, 'welcome');
+    overflowGuest.emit('join', { code: room.code });
+    expect((await overflowWelcomePromise).assignedOfficeId).toBeNull();
+
+    const denied = once<any>(guest, 'build_error');
+    guest.emit('place', { kind: 'plant', x: ownerOffice.x + 1, y: ownerOffice.y + 2 });
+    expect((await denied).error).toMatch(/dueño asignado/i);
+
+    const ownerPlaced = once<any>(owner, 'object_add');
+    owner.emit('place', { kind: 'plant', x: ownerOffice.x + 1, y: ownerOffice.y + 2 });
+    const object = (await ownerPlaced).object;
+    await wait(150);
+    const removeDenied = once<any>(guest, 'build_error');
+    guest.emit('remove_object', { id: object.id });
+    expect((await removeDenied).error).toMatch(/dueño asignado/i);
+
+    guest.disconnect();
+    const returningGuest = open(guestToken);
+    const returningWelcomePromise = once<any>(returningGuest, 'welcome');
+    returningGuest.emit('join', { code: room.code });
+    expect((await returningWelcomePromise).assignedOfficeId).toBe(guestWelcome.assignedOfficeId);
+  });
+
+  it('no asigna ni reserva oficina para el administrador', async () => {
+    const admin = await loginUser('admin', 'admin');
+    const guestToken = await register('guest_admin');
+    const room = (await request(base).post('/api/rooms').set('Authorization', `Bearer ${admin.token}`).send({ name: 'Oficina sin admin', offices: 1 })).body;
+
+    const adminSocket = open(admin.token);
+    const adminWelcomePromise = once<any>(adminSocket, 'welcome');
+    adminSocket.emit('join', { code: room.code });
+    const adminWelcome = await adminWelcomePromise;
+    expect(adminWelcome.assignedOfficeId).toBeNull();
+
+    const guestSocket = open(guestToken);
+    const guestWelcomePromise = once<any>(guestSocket, 'welcome');
+    guestSocket.emit('join', { code: room.code });
+    const guestWelcome = await guestWelcomePromise;
+    expect(guestWelcome.assignedOfficeId).toBe(guestWelcome.room.offices.find((office: any) => office.kind === 'office')?.id);
   });
 
   it('persiste perspectiva lateral y volteo horizontal de los objetos', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CATALOG, CATALOG_LIST, MAX_OBJECTS, PlacedObject, RoomState, T, generateLayout, rebuildBlocked, validatePlacement,
+  CATALOG, CATALOG_LIST, MAX_OBJECTS, PlacedObject, RoomState, T, canStand, generateLayout, rebuildBlocked, validatePlacement,
 } from '../src';
 
 const mkRoom = (tiles: number[][], objects: PlacedObject[] = [], offices?: RoomState['offices']): RoomState => {
@@ -15,6 +15,21 @@ const px = office.x + 1, py = office.y + 3; // interior libre, lejos de puertas 
 
 describe('validatePlacement', () => {
   const room = mkRoom(layout.tiles);
+
+  it('permite caminar sobre las sillas del plano y los sillones colocables', () => {
+    let chair: [number, number] | null = null;
+    for (let y = 0; y < layout.tiles.length && !chair; y++) {
+      for (let x = 0; x < layout.tiles[y].length; x++) {
+        if (layout.tiles[y][x] === T.CHAIR) { chair = [x, y]; break; }
+      }
+    }
+    expect(chair).not.toBeNull();
+    expect(canStand(layout.tiles, room.blocked, chair![0], chair![1])).toBe(true);
+
+    const armchair = mkRoom(layout.tiles, [{ id: 1, type: 'armchair', x: px, y: py }]);
+    expect(armchair.blocked.has(`${px},${py}`)).toBe(false);
+    expect(canStand(layout.tiles, armchair.blocked, px, py)).toBe(true);
+  });
 
   it('acepta el interior libre y rechaza entradas inválidas', () => {
     expect(validatePlacement(room, 'plant', px, py)).toBeNull();

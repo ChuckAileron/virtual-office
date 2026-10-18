@@ -29,6 +29,9 @@ function Hud({ session }: { session: GameSession }) {
       <strong id="hudRoom">{room.name} ({room.size.width}×{room.size.height})</strong>
       <button id="codeBtn" title="Copiar código de invitación" onClick={copy}>{copied ? '✔ Copiado' : `🔑 ${room.code}`}</button>
       <span id="hudWhere">{session.where}</span>
+      {st.assignedOfficeId !== null && (
+        <span id="assignedOffice">🏢 Tu oficina: {room.offices.find((office) => office.id === st.assignedOfficeId)?.name ?? `Oficina ${st.assignedOfficeId}`}</span>
+      )}
       <button id="micBtn" className={v.active ? 'on' : ''} disabled={v.micConnecting} title="Activar o desactivar tu micrófono; la recepción de llamadas es automática" onClick={() => (v.active ? session.voice.disable() : void session.voice.enable())}>
         {v.micConnecting ? '🎙 Activando…' : v.active ? '🎙 Micrófono activado' : '🎙 Activar micrófono'}
       </button>

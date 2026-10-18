@@ -35,7 +35,7 @@ describe('estado e interpolación', () => {
   });
 
   it('interpolate acerca a jugadores y mascotas', () => {
-    const p = makePlayer({ id: 'a', name: 'A', appearance: randomAppearance('male'), x: 0, y: 0, dir: 'down', voice: false, idle: false, role: 'member' });
+    const p = makePlayer({ id: 'a', name: 'A', appearance: randomAppearance('male'), x: 0, y: 0, dir: 'down', voice: false, idle: false, role: 'member', officeId: null });
     p.x = 3;
     const state = { players: new Map([['a', p]]), pets: new Map() } as unknown as GameState;
     expect(isMoving(p)).toBe(true);

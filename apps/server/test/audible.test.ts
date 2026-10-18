@@ -6,7 +6,7 @@ import type { Player, RoomRuntime } from '../src/rooms/room.types';
 const layout = generateLayout({ offices: 2 });
 const room: RoomRuntime = {
   code: 'T', name: 'T', size: layout.size, tiles: layout.tiles, offices: layout.offices,
-  objects: [], pets: [], floorDecorations: [], floorStyles: [], players: new Map(), blocked: new Set(),
+  objects: [], pets: [], floorDecorations: [], floorStyles: [], officeOwners: new Map(), players: new Map(), blocked: new Set(),
 };
 const mk = (id: string, x: number, y: number): Player =>
   ({ id, x, y, audible: new Set<string>() } as unknown as Player);

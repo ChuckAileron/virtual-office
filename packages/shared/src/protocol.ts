@@ -61,10 +61,12 @@ export interface PlayerView {
   voice: boolean;
   idle: boolean;
   role: Role;
+  officeId: number | null;
 }
 
 export interface WelcomePayload {
   you: string;
+  assignedOfficeId: number | null;
   room: { code: string; name: string; size: FloorSize; tiles: Tiles; offices: Office[] };
   objects: PlacedObject[];
   catalog: CatalogEntry[];

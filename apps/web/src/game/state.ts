@@ -24,6 +24,7 @@ export interface TeleportEffect {
 
 export interface GameState {
   you: string;
+  assignedOfficeId: number | null;
   room: WelcomePayload['room'];
   players: Map<string, ClientPlayer>;
   pets: Map<number, ClientPet>;
@@ -48,6 +49,7 @@ export const makePet = (p: Pet): ClientPet => ({ ...p, rx: p.x, ry: p.y });
 export function createState(w: WelcomePayload): GameState {
   const state: GameState = {
     you: w.you,
+    assignedOfficeId: w.assignedOfficeId,
     room: w.room,
     players: new Map(),
     pets: new Map(),
