@@ -242,6 +242,15 @@ alcanza Caddy) y que `JANUS_PUBLIC_URL` es `wss://tu-dominio/janus`.
 
 ## 9. Desplegar
 
+Desde `/opt/virtual-office`, ejecuta el script incluido en el repositorio:
+
+```bash
+cd /opt/virtual-office
+sh scripts/deploy-hetzner.sh
+```
+
+El script cambia a la raíz del proyecto y ejecuta:
+
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.hetzner.yml up -d --build
 ```
